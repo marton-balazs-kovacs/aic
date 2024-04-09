@@ -1,0 +1,36 @@
+---
+title: "AIC: Raw to processed data cleaning"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+### Loading packages
+
+```{r}
+library(tidyverse)
+library(googlesheets4)
+```
+
+## Auth googlesheets
+
+```{r}
+# Uncomment this line if you would like to run the code and you need to connect R to your Drive
+# gs4_auth()
+```
+
+### Load custom functions
+
+```{r}
+source(here::here("R/utils.R"))
+```
+
+### Read data
+
+```{r}
+source <- read_sheet("https://docs.google.com/spreadsheets/d/1x75r7M6BgiFYSD7OZFFd-K9gj5c76W9l4IpW7mffBQI/edit?usp=sharing")
+```
+
+
+

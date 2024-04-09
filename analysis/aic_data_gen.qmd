@@ -1,0 +1,166 @@
+---
+title: "AIC: Generating fake data for testing"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+### Loading packages
+
+```{r}
+library(tidyverse)
+library(googlesheets4)
+```
+
+## Auth googlesheets
+
+```{r}
+# Uncomment this line if you would like to run the code and you need to connect R to your Drive
+# gs4_auth()
+```
+
+### Load custom functions
+
+```{r}
+source(here::here("R/utils.R"))
+```
+
+### Read data
+
+```{r}
+form_data <- read_sheet("https://docs.google.com/spreadsheets/d/1x75r7M6BgiFYSD7OZFFd-K9gj5c76W9l4IpW7mffBQI/edit?usp=sharing")
+```
+
+List variable names.
+
+```{r}
+colnames(form_data)
+```
+
+Number of responses to generate.
+
+```{r}
+n <- 10
+```
+
+### Generate variables
+
+Defining response types based on questions.
+
+```{r}
+generate_fake_responses_df <- function(data, n) {
+  generated_responses_list <- list()
+  for (column_name in names(data)) {
+    # Options of numbers from 1 to 7
+    if (grepl("K\\.1\\.1\\.|K\\.4\\.2\\.", column_name)) {
+      generated_responses_list[[column_name]] <- sample(1:7, n, replace = TRUE)
+      # Likert type 7 scale with labels on extreme values
+    } else if (grepl("K\\.1\\.2\\.|K\\.7\\.2\\.", column_name)) {
+      generated_responses_list[[column_name]] <- generate_likert_response_with_labels(
+        n = n,
+        min_number = 1,
+        max_number = 7,
+        min_label = "Egyáltalán nem értek vele egyet",
+        max_label = "Teljesen egyetértek vele"
+      )
+      # Likert type 5 scale with labels on extreme values
+    } else if (grepl("K\\.5\\.1\\.|K\\.6\\.1\\.", column_name)) {
+      generated_responses_list[[column_name]] <- generate_likert_response_with_labels(
+        n = n,
+        min_number = 1,
+        max_number = 5,
+        min_label = "Egyáltalán nem értek vele egyet",
+        max_label = "Teljes mértékben egyetértek vele"
+      )
+    }
+    # Sex
+    else if (grepl("K\\.2\\.1\\.", column_name)) {
+      options <- c("Nő", "Férfi", "Nem kívánok válaszolni")
+      generated_responses_list[[column_name]] <- sample(options, n, replace = TRUE)
+      # Education
+    } else if (grepl("K\\.2\\.2\\.|K\\.2\\.3\\.", column_name)) {
+      options <-
+        c(
+          "Általános iskola",
+          "Középiskola",
+          "Egyetem (alapképzés)",
+          "Egyetem (mesterképzés)",
+          "Doktori fokozat"
+        )
+      generated_responses_list[[column_name]] <- sample(options, n, replace = TRUE)
+    }
+    # Income
+    else if (grepl("K\\.2\\.4\\.", column_name)) {
+      options <- c("Legszegényebb 30 %", "Középső 40%", "Felső 30%")
+      generated_responses_list[[column_name]] <- sample(options, n, replace = TRUE)
+    }
+    # Usage
+    else if (grepl("K\\.3\\.1\\.", column_name)) {
+      options <-
+        c(
+          "Soha",
+          "Havonta kevesebb mint egyszer",
+          "Havonta egyszer",
+          "Hetente egyszer",
+          "Hetente többször",
+          "Naponta",
+          "Naponta többször"
+        )
+      generated_responses_list[[column_name]] <- sample(options, n, replace = TRUE)
+    }
+    # Likert type 5 scale wit labels on all values
+    else if (grepl("K\\.3\\.2\\.|K\\.4\\.1\\.", column_name)) {
+      options <- c(
+        "1 Egyáltalán nem értek egyet vele",
+        "2 Inkább nem értek egyet vele",
+        "3 Semleges vagyok",
+        "4 Inkább egyetértek vele",
+        "5 Teljes mértékben egyetértek vele"
+      )
+      generated_responses_list[[column_name]] <- sample(options, n, replace = TRUE)
+      # Options of numbers from 1 to 5
+    } else if (grepl("K\\.3\\.3\\.", column_name)) {
+      generated_responses_list[[column_name]] <- sample(1:5, n, replace = TRUE)
+      # Aim
+    } else if (grepl("K\\.7\\.1\\.", column_name)) {
+      options <-
+        c(
+          "A kutatás azt vizsgálta, hogy a változókori táplálkozási szokások hogyan befolyásolják az egészségben eltöltött életévek számát.",
+          "A kutatás azt vizsgálta, hogy mennyire hatékony egy egészséges táplálkozást előremozdító beavatkozás az idősek körében.",
+          "A kutatás azt vizsgálta, hogy milyen sportágakat választanak az amerikai általános iskolás diákok délutáni foglalkozási keretek között.",
+          "A kutatás azt vizsgálta, hogy milyen hatásai voltak egy iskolai elhízás-megelőzési programnak."
+        )
+      generated_responses_list[[column_name]] <- sample(options, n, replace = TRUE)
+      # Concentration
+    } else if (grepl("K\\.7\\.3\\.", column_name)) {
+      options <- c(
+        "Igen, az elejétől a végéig sikerült koncentrálnom.",
+        "Nem, kb. a felénél abbahagytam a kérdések pontos értelmezését.",
+        "Nem, körülbelül a kétharmadánál már abbahagytam a kérdések pontos értelmezését.",
+        "Nem, már az elején néhány kérdés után abbahagytam a pontos értelmezést."
+      )
+      generated_responses_list[[column_name]] <- sample(options, n, replace = TRUE)
+      # Timestamp
+    } else if (grepl("Timestamp", column_name)) {
+      start_date <- "01/01/2024"
+      end_date <- "31/12/2024"
+     generated_responses_list[[column_name]] <- generate_random_timestamps(n = n, start_date, end_date)
+      # Fallback default
+    } else {
+      generated_responses_list[[column_name]] <- rep("NA", n)
+    }
+  }
+  
+  generated_df <- as_tibble(generated_responses_list)
+  
+  return(generated_df)
+}
+```
+
+Generating random responses for the given question based on the response types.
+
+```{r}
+generated_data <- generate_fake_responses_df(form_data, n)
+```
+
