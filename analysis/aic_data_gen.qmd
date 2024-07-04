@@ -26,6 +26,12 @@ library(googlesheets4)
 source(here::here("R/utils.R"))
 ```
 
+### Setting seed
+
+```{r}
+set.seed(42)
+```
+
 ### Read data
 
 ```{r}
@@ -41,126 +47,547 @@ colnames(form_data)
 Number of responses to generate.
 
 ```{r}
-n <- 10
+n <- 200
 ```
 
+### Define response options
+
+```{r}
+options_05_likert <- list(
+  "1" = "Egyáltalán nem értek egyet vele",
+  "2" = "Inkább nem értek egyet vele",
+  "3" = "Semleges vagyok",
+  "4" = "Inkább egyetértek vele",
+  "5" = "Teljes mértékben egyetértek vele"
+)
+
+options_05_extreme <- list(
+  "1" = "Egyáltalán nem értek egyet vele",
+  "2" = "",
+  "3" = "",
+  "4" = "",
+  "5" = "Teljes mértékben egyetértek vele"
+)
+
+options_05_numbers <- list(
+  "1" = "",
+  "2" = "",
+  "3" = "",
+  "4" = "",
+  "5" = ""
+)
+
+options_07_extreme <- list(
+  "1" = "Egyáltalán nem értek egyet vele",
+  "2" = "",
+  "3" = "",
+  "4" = "",
+  "5" = "",
+  "6" = "",
+  "7" = "Teljes mértékben egyetértek vele"
+)
+
+options_07_numbers <- list(
+  "1" = "",
+  "2" = "",
+  "3" = "",
+  "4" = "",
+  "5" = "",
+  "6" = "",
+  "7" = ""
+)
+
+options_sex <- list("1" = "Nő",
+                    "2" = "Férfi",
+                    "3" = "Nem kívánok válaszolni")
+
+options_school <-
+  list(
+    "1" = "Általános iskola",
+    "2" = "Középiskola",
+    "3" = "Egyetem (alapképzés)",
+    "4" = "Egyetem (mesterképzés)",
+    "5" = "Doktori fokozat"
+  )
+
+options_income <- list("1" = "Legszegényebb 30 %", "2" =  "Középső 40%",  "3" = "Felső 30%")
+
+options_week <-
+  list(
+    "1" = "Soha",
+    "2" = "Havonta kevesebb mint egyszer",
+    "3" = "Havonta egyszer",
+    "4" = "Hetente egyszer",
+    "5" = "Hetente többször",
+    "6" = "Naponta",
+    "7" = "Naponta többször"
+  )
+
+options_aim <-
+  list(
+    "1" = "A kutatás azt vizsgálta, hogy a változókori táplálkozási szokások hogyan befolyásolják az egészségben eltöltött életévek számát.",
+    "2" = "A kutatás azt vizsgálta, hogy mennyire hatékony egy egészséges táplálkozást előremozdító beavatkozás az idősek körében.",
+    "3" =  "A kutatás azt vizsgálta, hogy milyen sportágakat választanak az amerikai általános iskolás diákok délutáni foglalkozási keretek között.",
+    "4" =  "A kutatás azt vizsgálta, hogy milyen hatásai voltak egy iskolai elhízás-megelőzési programnak."
+  )
+
+options_concentration <-
+  list(
+    "1" = "Igen, az elejétől a végéig sikerült koncentrálnom.",
+    "2" = "Nem, kb. a felénél abbahagytam a kérdések pontos értelmezését.",
+    "3" = "Nem, körülbelül a kétharmadánál már abbahagytam a kérdések pontos értelmezését.",
+    "4" = "Nem, már az elején néhány kérdés után abbahagytam a pontos értelmezést."
+  )
+
+options_studies <-
+  list(
+    "1" = "Pszichológia",
+    "2" = "Matematika",
+    "3" = "Közgazdaságtan",
+    "4" = "Biológia"
+  )
+```
+
+### Means for the generated variables
+
+We also want to make sure that the generated data has three different profiles. These profiles are the following:
+* profile 1: people who do not trust science and AI either
+  * attitudes toward AI low (k03_02)
+  * attitudes toward science low (k04_01)
+  * attitudes toward researchers low (k04_02)
+  * algorithm aversion high (k05_01)
+  * attitudes toward autonomous vehicles low (k06_01)
+* profile 2: people who trust science but not AI
+  * attitudes toward AI low
+  * attitudes toward science high
+  * attitudes toward researchers high
+  * algorithm aversion high
+  * attitudes toward autonomous vehicles low
+* profile 3: people who do not trust science but do trust AI
+  * attitudes toward AI high
+  * attitudes toward science low
+  * attitudes toward researchers low
+  * algorithm aversion low
+  * attitudes toward autonomous vehicles high
+  
 ### Generate variables
 
 Defining response types based on questions.
 
 ```{r}
-generate_fake_responses_df <- function(data, n) {
-  generated_responses_list <- list()
-  for (column_name in names(data)) {
-    # Options of numbers from 1 to 7
-    if (grepl("K\\.1\\.1\\.|K\\.4\\.2\\.", column_name)) {
-      generated_responses_list[[column_name]] <- sample(1:7, n, replace = TRUE)
-      # Likert type 7 scale with labels on extreme values
-    } else if (grepl("K\\.1\\.2\\.|K\\.7\\.2\\.", column_name)) {
-      generated_responses_list[[column_name]] <- generate_likert_response_with_labels(
-        n = n,
-        min_number = 1,
-        max_number = 7,
-        min_label = "Egyáltalán nem értek vele egyet",
-        max_label = "Teljesen egyetértek vele"
-      )
-      # Likert type 5 scale with labels on extreme values
-    } else if (grepl("K\\.5\\.1\\.|K\\.6\\.1\\.", column_name)) {
-      generated_responses_list[[column_name]] <- generate_likert_response_with_labels(
-        n = n,
-        min_number = 1,
-        max_number = 5,
-        min_label = "Egyáltalán nem értek vele egyet",
-        max_label = "Teljes mértékben egyetértek vele"
-      )
-    }
-    # Sex
-    else if (grepl("K\\.2\\.1\\.", column_name)) {
-      options <- c("Nő", "Férfi", "Nem kívánok válaszolni")
-      generated_responses_list[[column_name]] <- sample(options, n, replace = TRUE)
-      # Education
-    } else if (grepl("K\\.2\\.2\\.|K\\.2\\.3\\.", column_name)) {
-      options <-
-        c(
-          "Általános iskola",
-          "Középiskola",
-          "Egyetem (alapképzés)",
-          "Egyetem (mesterképzés)",
-          "Doktori fokozat"
-        )
-      generated_responses_list[[column_name]] <- sample(options, n, replace = TRUE)
-    }
-    # Income
-    else if (grepl("K\\.2\\.4\\.", column_name)) {
-      options <- c("Legszegényebb 30 %", "Középső 40%", "Felső 30%")
-      generated_responses_list[[column_name]] <- sample(options, n, replace = TRUE)
-    }
-    # Usage
-    else if (grepl("K\\.3\\.1\\.", column_name)) {
-      options <-
-        c(
-          "Soha",
-          "Havonta kevesebb mint egyszer",
-          "Havonta egyszer",
-          "Hetente egyszer",
-          "Hetente többször",
-          "Naponta",
-          "Naponta többször"
-        )
-      generated_responses_list[[column_name]] <- sample(options, n, replace = TRUE)
-    }
-    # Likert type 5 scale wit labels on all values
-    else if (grepl("K\\.3\\.2\\.|K\\.4\\.1\\.", column_name)) {
-      options <- c(
-        "1 Egyáltalán nem értek egyet vele",
-        "2 Inkább nem értek egyet vele",
-        "3 Semleges vagyok",
-        "4 Inkább egyetértek vele",
-        "5 Teljes mértékben egyetértek vele"
-      )
-      generated_responses_list[[column_name]] <- sample(options, n, replace = TRUE)
-      # Options of numbers from 1 to 5
-    } else if (grepl("K\\.3\\.3\\.", column_name)) {
-      generated_responses_list[[column_name]] <- sample(1:5, n, replace = TRUE)
-      # Aim
-    } else if (grepl("K\\.7\\.1\\.", column_name)) {
-      options <-
-        c(
-          "A kutatás azt vizsgálta, hogy a változókori táplálkozási szokások hogyan befolyásolják az egészségben eltöltött életévek számát.",
-          "A kutatás azt vizsgálta, hogy mennyire hatékony egy egészséges táplálkozást előremozdító beavatkozás az idősek körében.",
-          "A kutatás azt vizsgálta, hogy milyen sportágakat választanak az amerikai általános iskolás diákok délutáni foglalkozási keretek között.",
-          "A kutatás azt vizsgálta, hogy milyen hatásai voltak egy iskolai elhízás-megelőzési programnak."
-        )
-      generated_responses_list[[column_name]] <- sample(options, n, replace = TRUE)
-      # Concentration
-    } else if (grepl("K\\.7\\.3\\.", column_name)) {
-      options <- c(
-        "Igen, az elejétől a végéig sikerült koncentrálnom.",
-        "Nem, kb. a felénél abbahagytam a kérdések pontos értelmezését.",
-        "Nem, körülbelül a kétharmadánál már abbahagytam a kérdések pontos értelmezését.",
-        "Nem, már az elején néhány kérdés után abbahagytam a pontos értelmezést."
-      )
-      generated_responses_list[[column_name]] <- sample(options, n, replace = TRUE)
-      # Timestamp
-    } else if (grepl("Timestamp", column_name)) {
-      start_date <- "01/01/2024"
-      end_date <- "31/12/2024"
-     generated_responses_list[[column_name]] <- generate_random_timestamps(n = n, start_date, end_date)
-      # Fallback default
-    } else {
-      generated_responses_list[[column_name]] <- rep("NA", n)
-    }
-  }
-  
-  generated_df <- as_tibble(generated_responses_list)
-  
-  return(generated_df)
-}
+ # LPA factors
+profile_01 <- list(
+  list(
+    column_id = "K.3.2.",
+    type = "likert",
+    levels = options_05_likert,
+    mean_value = 2.1
+  ),
+  list(
+    column_id = "K.4.1.",
+    type = "likert",
+    levels = options_05_likert,
+    mean_value = 1.8
+  ),
+  list(
+    column_id = "K.5.1.",
+    type = "likert",
+    levels = options_05_likert,
+    mean_value = 4.6
+  ),
+  list(
+    column_id = "K.4.2.",
+    type = "likert",
+    levels = options_07_extreme,
+    mean_value = 1.6
+  ),
+  list(
+    column_id = "K.6.1.",
+    type = "likert",
+    levels = options_05_likert,
+    mean_value = 2.1
+  )
+)
+
+profile_02 <- list(
+  list(
+    column_id = "K.3.2.",
+    type = "likert",
+    levels = options_05_likert,
+    mean_value = 2.1
+  ),
+  list(
+    column_id = "K.4.1.",
+    type = "likert",
+    levels = options_05_likert,
+    mean_value = 4.5
+  ),
+  list(
+    column_id = "K.5.1.",
+    type = "likert",
+    levels = options_05_likert,
+    mean_value = 4.8
+  ),
+  list(
+    column_id = "K.4.2.",
+    type = "likert",
+    levels = options_07_extreme,
+    mean_value = 6.7
+  ),
+  list(
+    column_id = "K.6.1.",
+    type = "likert",
+    levels = options_05_likert,
+    mean_value = 1.9
+  )
+)
+
+profile_03 <- list(
+  list(
+    column_id = "K.3.2.",
+    type = "likert",
+    levels = options_05_likert,
+    mean_value = 4.7
+  ),
+  list(
+    column_id = "K.4.1.",
+    type = "likert",
+    levels = options_05_likert,
+    mean_value = 1.6
+  ),
+  list(
+    column_id = "K.5.1.",
+    type = "likert",
+    levels = options_05_likert,
+    mean_value = 1.2
+  ),
+  list(
+    column_id = "K.4.2.",
+    type = "likert",
+    levels = options_07_extreme,
+    mean_value = 1.4
+  ),
+  list(
+    column_id = "K.6.1.",
+    type = "likert",
+    levels = options_05_likert,
+    mean_value = 4.8
+  )
+)
+
+column_definitions <- list(
+  # Modulating factors
+  list(
+    column_id = "K\\.2\\.1\\.",
+    type = "likert",
+    levels = options_sex,
+    mean_value = 1.5
+  ),
+  list(
+    column_id = "K\\.2\\.2\\.",
+    type = "likert",
+    levels = options_school,
+    mean_value = 2
+  ),
+  list(
+    column_id = "K\\.2\\.3\\.",
+    type = "likert",
+    levels = options_school,
+    mean_value = 2
+  ),
+  list(
+    column_id = "K\\.2\\.4\\.",
+    type = "likert",
+    levels = options_income,
+    mean_value = 2
+  ),
+  list(
+    column_id = "K\\.3\\.1\\.",
+    type = "likert",
+    levels = options_week,
+    mean_value = 1.3
+  ),
+  list(
+    column_id = "K\\.3\\.3\\.",
+    type = "likert",
+    levels = options_05_numbers,
+    mean_value = 2
+  ),
+  list(
+    column_id = "K\\.7\\.1\\.",
+    type = "likert",
+    levels = options_aim,
+    mean_value =  4
+  ),
+  list(
+    column_id = "K\\.7\\.3\\.",
+    type = "likert",
+    levels = options_concentration,
+    mean_value = 1.5
+  ),
+  list(
+    column_id = "K\\.1\\.1\\.",
+    type = "likert",
+    levels = options_07_numbers,
+    mean_value = 5
+  ),
+  list(
+    column_id = "K\\.7\\.2\\.",
+    type = "likert",
+    levels = options_07_extreme,
+    mean_value = 5
+  ),
+  list(
+    column_id = "K\\.7\\.3\\.",
+    type = "likert",
+    levels = options_concentration,
+    mean_value = 1.5
+  ),
+  list(
+    column_id = "Timestamp",
+    type = "datetime",
+    start_date = "01/01/2024",
+    end_date = "31/12/2024"
+  ),
+  list(
+    column_id = "K.2.2.",
+    type = "likert",
+    levels = options_studies,
+    mean_value = NULL
+  )
+)
 ```
 
-Generating random responses for the given question based on the response types.
+Generating random responses for the given question based on the response types. There will be 4 different surveys based on the four different scenarios so we generate all of them.
+
+There are four scenarios based on two conditions (use of AI and assuming responsibility):
+* No AI use - Not assuming responsibility (con 1)
+* No AI use - Assuming responsibility (con 2)
+* Using AI - Not assuming responsibility (con 3)
+* Using AI - Assuming responsibility (con 4)
+
+No AI effect or responsibility effect for profile 1
 
 ```{r}
-generated_data <- generate_fake_responses_df(form_data, n)
+survey_con1_profile1 <-
+  generate_fake_responses_df(
+    col_names = names(form_data),
+    n = n,
+    column_definition = c(
+      # Outcome measure
+      list(
+        list(
+          column_id = "K.1.2.",
+          type = "likert",
+          levels = options_07_extreme,
+          mean_value = 3.5
+        )
+      ),
+      column_definitions,
+      profile_01)
+  )
+
+survey_con2_profile1 <-   generate_fake_responses_df(
+  col_names = names(form_data),
+  n = n,
+  column_definition = c(# Outcome measure
+    list(
+      list(
+        column_id = "K.1.2.",
+        type = "likert",
+        levels = options_07_extreme,
+        mean_value = 3.5
+      )
+    ),
+    column_definitions,
+    profile_01)
+)
+
+survey_con3_profile1 <-   generate_fake_responses_df(
+  col_names = names(form_data),
+  n = n,
+  column_definition = c(# Outcome measure
+    list(
+      list(
+        column_id = "K.1.2.",
+        type = "likert",
+        levels = options_07_extreme,
+        mean_value = 3.5
+      )
+    ),
+    column_definitions,
+    profile_01)
+)
+
+survey_con4_profile1 <-   generate_fake_responses_df(
+  col_names = names(form_data),
+  n = n,
+  column_definition = c(# Outcome measure
+    list(
+      list(
+        column_id = "K.1.2.",
+        type = "likert",
+        levels = options_07_extreme,
+        mean_value = 3.5
+      )
+    ),
+    column_definitions,
+    profile_01)
+)
 ```
+
+AI effect but no responsibility effect for profile 2
+
+```{r}
+survey_con1_profile2 <-   generate_fake_responses_df(
+  col_names = names(form_data),
+  n = n,
+  column_definition = c(# Outcome measure
+    list(
+      list(
+        column_id = "K.1.2.",
+        type = "likert",
+        levels = options_07_extreme,
+        mean_value = 6
+      )
+    ),
+    column_definitions,
+    profile_02)
+)
+
+survey_con2_profile2 <- generate_fake_responses_df(
+  col_names = names(form_data),
+  n = n,
+  column_definition = c(# Outcome measure
+    list(
+      list(
+        column_id = "K.1.2.",
+        type = "likert",
+        levels = options_07_extreme,
+        mean_value = 6
+      )
+    ),
+    column_definitions,
+    profile_02)
+)
+
+survey_con3_profile2 <- generate_fake_responses_df(
+  col_names = names(form_data),
+  n = n,
+  column_definition = c(# Outcome measure
+    list(
+      list(
+        column_id = "K.1.2.",
+        type = "likert",
+        levels = options_07_extreme,
+        mean_value = 2
+      )
+    ),
+    column_definitions,
+    profile_02)
+)
+
+survey_con4_profile2 <- generate_fake_responses_df(
+  col_names = names(form_data),
+  n = n,
+  column_definition = c(# Outcome measure
+    list(
+      list(
+        column_id = "K.1.2.",
+        type = "likert",
+        levels = options_07_extreme,
+        mean_value = 2
+      )
+    ),
+    column_definitions,
+    profile_02)
+)
+```
+
+Opposite direction AI effect but no responsibility effect for profile 3
+
+```{r}
+survey_con1_profile3 <- generate_fake_responses_df(
+  col_names = names(form_data),
+  n = n,
+  column_definition = c(# Outcome measure
+    list(
+      list(
+        column_id = "K.1.2.",
+        type = "likert",
+        levels = options_07_extreme,
+        mean_value = 2
+      )
+    ),
+    column_definitions,
+    profile_03)
+)
+survey_con2_profile3 <- generate_fake_responses_df(
+  col_names = names(form_data),
+  n = n,
+  column_definition = c(# Outcome measure
+    list(
+      list(
+        column_id = "K.1.2.",
+        type = "likert",
+        levels = options_07_extreme,
+        mean_value = 2
+      )
+    ),
+    column_definitions,
+    profile_03)
+)
+survey_con3_profile3 <- generate_fake_responses_df(
+  col_names = names(form_data),
+  n = n,
+  column_definition = c(# Outcome measure
+    list(
+      list(
+        column_id = "K.1.2.",
+        type = "likert",
+        levels = options_07_extreme,
+        mean_value = 6
+      )
+    ),
+    column_definitions,
+    profile_03)
+)
+survey_con4_profile3 <- generate_fake_responses_df(
+  col_names = names(form_data),
+  n = n,
+  column_definition = c(# Outcome measure
+    list(
+      list(
+        column_id = "K.1.2.",
+        type = "likert",
+        levels = options_07_extreme,
+        mean_value = 6
+      )
+    ),
+    column_definitions,
+    profile_03)
+)
+```
+
+```{r}
+survey_con1 <-
+  bind_rows(survey_con1_profile1, survey_con1_profile2, survey_con1_profile3)
+survey_con2 <-
+  bind_rows(survey_con2_profile1, survey_con2_profile2, survey_con2_profile3)
+survey_con3 <-
+  bind_rows(survey_con3_profile1, survey_con3_profile2, survey_con3_profile3)
+survey_con4 <-
+  bind_rows(survey_con4_profile1, survey_con4_profile2, survey_con4_profile3)
+```
+
+### Saving data
+
+```{r}
+write_csv(survey_con1, "data/raw/aic_raw_fake_con1_data.csv")
+write_csv(survey_con2, "data/raw/aic_raw_fake_con2_data.csv")
+write_csv(survey_con3, "data/raw/aic_raw_fake_con3_data.csv")
+write_csv(survey_con4, "data/raw/aic_raw_fake_con4_data.csv")
+```
+
+
 

@@ -1,0 +1,259 @@
+---
+title: "AIC: Analysis"
+format: html
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+### Loading packages
+
+```{r}
+library(tidyverse)
+library(tidyLPA)
+library(gt)
+```
+
+### Load custom functions
+
+```{r}
+source(here::here("R/utils.R"))
+```
+
+### Read data
+
+```{r}
+# Needs to be replaced with actual data after data collection is completed
+processed <- readr::read_csv(here::here("data/processed/aic_processed_fake_data.csv"))
+```
+
+### Latent Profile Analysis
+
+ Run the analysis.
+ 
+```{r}
+# Filter the data for the LPA
+renaming_map <- c(
+   "ai_attitude" = "k03_02_composite",
+   "science_attitude" = "k04_01_composite",
+   "researcher_attitude" = "k04_02_composite",
+   "algorithm_aversion" = "k05_01_composite" ,
+    "autonomous_vehicles" = "k06_01_composite"
+)
+
+lpa_data <- processed %>%
+  dplyr::select(k03_02_composite, k04_01_composite, k04_02_composite, k05_01_composite, k06_01_composite) %>%
+  dplyr::rename(!!!renaming_map)
+
+
+# Fit the model with 5 profiles
+lpa_model <- estimate_profiles(lpa_data, n_profiles = 1:5, models = c(1, 2, 3))
+
+# View the summary of the model
+lpa_model
+
+# Get estimates
+get_estimates(lpa_model$model_1_class_3)
+```
+
+Visualize the profiles
+
+```{r}
+plot_profiles(lpa_model)
+```
+
+```{r}
+plot_profiles(lpa_model$model_1_class_3)
+```
+
+Get model fits
+
+```{r}
+get_fit(lpa_model) |>
+  select(Model, Classes, BIC) |> 
+  gt() |>
+  tab_style(style = list(cell_text(weight = "bold")),
+            locations = cells_column_labels())
+```
+
+Compare different profiles and modals
+
+```{r}
+compare_solutions(lpa_model, statistics = "BIC")
+```
+
+Sort participants to profiles.
+
+```{r}
+processed <- dplyr::left_join(
+  processed,
+  # Get data from model
+  get_data(lpa_model$model_1_class_3),
+  by  = c(
+    "k03_02_composite",
+    "k04_01_composite",
+    "k04_02_composite",
+    "k05_01_composite",
+    "k06_01_composite"
+  )
+)
+```
+
+### AI main effect
+
+```{r}
+ai_main_plot_data <-
+  processed |> 
+  dplyr::select(is_ai, k01_02_composite, Class) |> 
+  mutate(
+    is_ai = case_when(
+      is_ai == 1L ~ "Used",
+      is_ai == 0L ~ "Not used"
+    ),
+    Class = case_when(
+      Class == 1 ~ "No trust in AI nor science",
+      Class == 2 ~ "Trust science but not AI",
+      Class == 3 ~ "Trust AI but not science"
+    )
+  ) |> 
+  group_by(is_ai, Class) |> 
+  summarise(
+    mean = mean(k01_02_composite, na.rm = TRUE),
+    sd = sd(k01_02_composite, na.rm = TRUE),
+    n = n(),
+    se = sd / sqrt(n),
+    ci_lower = mean - se * 1.96,
+    ci_upper = mean + se * 1.96
+    )
+
+ai_main_plot <-
+  ai_main_plot_data |> 
+  ggplot() +
+  aes(
+    x = is_ai,
+    y = mean,
+    color = Class,
+    group = Class
+  ) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 8) +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.1) +
+  scale_y_continuous(limits = c(9, 63), breaks = seq(from = 9, to = 63, by = 9)) +
+  labs(
+    x = "Did the authors use AI during the study?",
+    y = "Mean perceived credibility of the study",
+    color = "Profile"
+  ) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.title = element_text(size = 20),
+    axis.text = element_text(size = 18),
+    legend.title = element_text(size = 18),
+    legend.text = element_text(size = 16),
+    legend.position='bottom'
+  )
+
+ai_main_plot 
+```
+
+### Modulating factors of AI main effect
+
+Attitudes towards self driving cars.
+
+```{r}
+ai_main_cars_plot_data <-
+  processed |> 
+  dplyr::select(is_ai, k01_02_composite, k06_01_composite) |> 
+  mutate(
+    is_ai = case_when(
+      is_ai == 1L ~ "Used",
+      is_ai == 0L ~ "Not used"
+    )
+  )
+
+ai_main_cars_plot <-
+  ai_main_cars_plot_data |> 
+  ggplot() +
+  aes(
+    x = k01_02_composite,
+    y = k06_01_composite,
+    color = is_ai
+  ) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_x_continuous(limits = c(9, 63), breaks = seq(from = 9, to = 63, by = 9)) +
+  scale_y_continuous(limits = c(19, 95), breaks = seq(from = 19, to = 95, by = 19), labels = as.character(seq(from = 19, to = 95, by = 19))) +
+  labs(
+    y = "Mean attitude scores towards autonomous vehicles",
+    x = "Mean perceived credibility of the study",
+    color = "AI"
+  ) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.title = element_text(size = 20),
+    axis.text = element_text(size = 18),
+    legend.title = element_text(size = 18),
+    legend.text = element_text(size = 16)
+  )
+
+ai_main_cars_plot 
+```
+
+### Interaction effect
+
+```{r}
+interaction_plot_data <-
+  processed |> 
+  dplyr::select(is_ai, is_responsibility, k01_02_composite) |> 
+  mutate(
+    is_ai = case_when(
+      is_ai == 1L ~ "Used",
+      is_ai == 0L ~ "Not used"
+    ),
+    is_responsibility = case_when(
+      is_responsibility == 1L ~ "Assumed",
+      is_responsibility == 0L ~ "Not assumed"
+    )
+  ) |> 
+  group_by(is_ai, is_responsibility) |> 
+  summarise(
+    mean = mean(k01_02_composite, na.rm = TRUE),
+    sd = sd(k01_02_composite, na.rm = TRUE),
+    n = n(),
+    se = sd / sqrt(n),
+    ci_lower = mean - se * 1.96,
+    ci_upper = mean + se * 1.96
+    )
+
+interaction_plot <-
+  interaction_plot_data |> 
+  ggplot() +
+  aes(
+    x = is_ai,
+    y = mean,
+    color = is_responsibility
+  ) +
+  geom_point(size = 8) +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.1) +
+  scale_y_continuous(limits = c(9, 63), breaks = seq(from = 9, to = 63, by = 9)) +
+  labs(
+    x = "Did the authors use AI during the study?",
+    y = "Mean perceived credibility of the study",
+    color = "Responsibility"
+  ) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.title = element_text(size = 20),
+    axis.text = element_text(size = 18),
+    legend.title = element_text(size = 18),
+    legend.text = element_text(size = 16)
+  )
+
+interaction_plot
+```

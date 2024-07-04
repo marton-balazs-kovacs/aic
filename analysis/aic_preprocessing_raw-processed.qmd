@@ -10,7 +10,7 @@ editor_options:
 
 ```{r}
 library(tidyverse)
-library(googlesheets4)
+# library(googlesheets4)
 ```
 
 ## Auth googlesheets
@@ -29,8 +29,187 @@ source(here::here("R/utils.R"))
 ### Read data
 
 ```{r}
-source <- read_sheet("https://docs.google.com/spreadsheets/d/1x75r7M6BgiFYSD7OZFFd-K9gj5c76W9l4IpW7mffBQI/edit?usp=sharing")
+read_data_with_condition <- function(file_path) {
+  condition <- str_extract(file_path, "(?<=con)\\d+") # Extract condition number
+  read_csv(file_path) %>%
+    mutate(condition = condition) # Add the condition as a column
+}
+
+# Paths to the data files
+file_paths <- c(
+  here::here("data/raw/aic_raw_fake_con1_data.csv"),
+  here::here("data/raw/aic_raw_fake_con2_data.csv"),
+  here::here("data/raw/aic_raw_fake_con3_data.csv"),
+  here::here("data/raw/aic_raw_fake_con4_data.csv")
+)
+
+# Read and combine all datasets
+raw <- map_dfr(file_paths, read_data_with_condition)
 ```
 
+List column names.
 
+```{r}
+colnames(raw)
+```
+
+### Renaming variables
+
+```{r}
+new_colnames <- process_column_names(names(raw))
+
+raw <- set_names(raw, new_colnames)
+```
+
+### Delete test responses
+
+We started the official data collection at XXX so any response before that date will be excluded.
+
+```{r}
+start_date <- dmy("09/08/2023")
+raw <-
+  raw |> 
+  mutate(timestamp = dmy_hms(str_replace_all(timestamp, " ", ":"))) %>%
+  filter(timestamp >= start_date)
+```
+
+### Delete respondents who did not pay attention
+
+The number of respondents who failed the attention check.
+
+```{r}
+nrow(filter(raw, k03_03 == 4))
+```
+
+Excluding.
+
+```{r}
+raw <-
+  raw |> 
+  filter(k03_03 != 4)
+```
+
+The number of respondents who did not understand the abstract.
+
+```{r}
+nrow(filter(raw, k07_01 != "4 A kutatás azt vizsgálta, hogy milyen hatásai voltak egy iskolai elhízás-megelőzési programnak."))
+```
+
+Excluding.
+
+```{r}
+raw <-
+  raw |> 
+  filter(k07_01 == "4 A kutatás azt vizsgálta, hogy milyen hatásai voltak egy iskolai elhízás-megelőzési programnak.")
+```
+
+Number of respondents who could not concentrate at all.
+
+```{r}
+nrow(filter(raw, k07_03 == "4 Nem, már az elején néhány kérdés után abbahagytam a pontos értelmezést."))
+```
+
+Excluding.
+
+```{r}
+raw <-
+  raw |> 
+  filter(k07_03 != "4 Nem, már az elején néhány kérdés után abbahagytam a pontos értelmezést.")
+```
+
+The number of respondents remaining after the exclusions.
+
+```{r}
+nrow(raw)
+```
+
+### Calculating composite scores for question batteries
+
+Outcome question (k01_02)
+
+```{r}
+raw <-
+  raw |> 
+  mutate(across(starts_with("k01_02"), ~as.numeric(str_extract(., "\\d+")), .names = "num_{.col}")) %>%
+  mutate(k01_02_composite = rowSums(select(., starts_with("num_k01_02")), na.rm = TRUE)) %>%
+  select(-starts_with("num_k01_02"))
+```
+
+Attitudes towards AI (k03_02)
+
+```{r}
+raw <-
+  raw |> 
+  mutate(across(starts_with("k03_02"), ~as.numeric(str_extract(., "\\d+")), .names = "num_{.col}")) %>%
+  mutate(k03_02_composite = rowSums(select(., starts_with("num_k03_02")), na.rm = TRUE)) %>%
+  select(-starts_with("num_k03_02"))
+```
+
+Attitudes towards science in general (k04_01)
+
+```{r}
+raw <-
+  raw |> 
+  mutate(across(starts_with("k04_01"), ~as.numeric(str_extract(., "\\d+")), .names = "num_{.col}")) %>%
+  mutate(k04_01_composite = rowSums(select(., starts_with("num_k04_01")), na.rm = TRUE)) %>%
+  select(-starts_with("num_k04_01"))
+```
+
+Attitudes towards the researchers of the current study (k04_02)
+
+```{r}
+raw <-
+  raw |> 
+  mutate(across(starts_with("k04_02"), ~as.numeric(str_extract(., "\\d+")), .names = "num_{.col}")) %>%
+  mutate(k04_02_composite = rowSums(select(., starts_with("num_k04_02")), na.rm = TRUE)) %>%
+  select(-starts_with("num_k04_02"))
+```
+
+algorithm aversion (k05_01)
+
+```{r}
+raw <-
+  raw |> 
+  mutate(across(starts_with("k05_01"), ~as.numeric(str_extract(., "\\d+")), .names = "num_{.col}")) %>%
+  mutate(k05_01_composite = rowSums(select(., starts_with("num_k05_01")), na.rm = TRUE)) %>%
+  select(-starts_with("num_k05_01"))
+```
+
+attitudes towards autonomous vehicles (k06_01)
+
+```{r}
+raw <-
+  raw |> 
+  mutate(across(starts_with("k06_01"), ~as.numeric(str_extract(., "\\d+")), .names = "num_{.col}")) %>%
+  mutate(k06_01_composite = rowSums(select(., starts_with("num_k06_01")), na.rm = TRUE)) %>%
+  select(-starts_with("num_k06_01"))
+```
+
+### Adding condition based variables
+
+There are four scenarios based on two conditions (use of AI and assuming responsibility):
+* No AI use - Not assuming responsibility (con 1)
+* No AI use - Assuming responsibility (con 2)
+* Using AI - Not assuming responsibility (con 3)
+* Using AI - Assuming responsibility (con 4)
+
+```{r}
+raw <-
+  raw |> 
+  mutate(
+    is_ai = case_when(
+    condition %in% c(1, 2) ~ 0L,
+    condition %in% c(3, 4) ~ 1L
+  ),
+  is_responsibility = case_when(
+    condition %in% c(1, 3) ~ 0L,
+    condition %in% c(2, 4) ~ 1L
+  ))
+```
+
+### Save processed data
+
+```{r}
+write_csv(raw, here::here("data/processed/aic_processed_fake_data.csv"))
+```
 
