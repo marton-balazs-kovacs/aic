@@ -1,3 +1,66 @@
+calculate_main_table_data <- function(data, response_vars, grouping_var) {
+    data |>
+    group_by({{ grouping_var }}) |> 
+    summarise(
+      across(
+        {{ response_vars }},
+        list(
+          mean = ~ round(mean(.x, na.rm = TRUE), 2),
+          sd = ~ round(sd(.x, na.rm = TRUE), 2)
+        ),
+        .names = "{.col}-{.fn}"
+      )
+    ) |> 
+    pivot_longer(-{{ grouping_var }}, names_to = c("items", "stat"), names_sep = "-", values_to = "values") |> 
+    pivot_wider(names_from = "stat", values_from = "values") |> 
+    mutate(text = paste(mean, sd, sep = "/")) |> 
+    select(-mean, -sd) |> 
+    pivot_wider(names_from = {{grouping_var}}, values_from = text)
+}
+
+calculate_interaction_table_data <- function(data, response_vars, grouping_var, factor_var) {
+  data |>
+    group_by({{factor_var}}, {{grouping_var}}) |>
+    summarise(across(
+      {{response_vars}},
+      list(
+        mean = ~ round(mean(.x, na.rm = TRUE), 2),
+        sd = ~ round(sd(.x, na.rm = TRUE), 2),
+        n = ~ n()
+      ),
+      .names = "{.col}-{.fn}"
+    )) |>
+    pivot_longer(
+      c(-{{factor_var}}, -{{grouping_var}}),
+      names_to = c("items", "stat"),
+      names_sep = "-",
+      values_to = "values"
+    ) |>
+    pivot_wider(names_from = {{grouping_var}}, values_from = values) |>
+    pivot_wider(names_from = stat, values_from = c(No, Yes)) |>
+    mutate(mean_diff = round(No_mean - Yes_mean, 2),
+           sd_diff = round(sqrt((No_sd ^ 2 / No_n) + (Yes_sd ^ 2 / Yes_n)), 2)) |>
+    mutate(
+      No = paste(No_mean, No_sd, sep = "/"),
+      Yes = paste(Yes_mean, Yes_sd, sep = "/"),
+      Difference = paste(mean_diff, sd_diff, sep = "/")
+    ) |>
+    select({{factor_var}}, items, No, Yes, Difference)
+  
+}
+
+calculate_percentage <- function(data, response_var, grouping_var) {
+  data |>
+    dplyr::count({{grouping_var}}, {{response_var}}) |>
+    dplyr::group_by({{grouping_var}}) |>
+    dplyr::mutate(
+      N = sum(n),
+      relative_frequency = n / N,
+      percentage = round(relative_frequency * 100, 2)
+    ) |>
+    dplyr::ungroup()
+}
+
 # Helper functions for generating fake data
 generate_likert_response_with_labels <- function(n, levels, mean_value = NULL, spread = NULL) {
   # Extract min and max number from the named list
@@ -59,8 +122,10 @@ generate_random_timestamps <- function(n, start_date, end_date) {
   return(timestamps)
 }
 
-process_column_names <- function(names) {
-  tibble(original_names = names) %>%
+process_column_names <- function(names, return_statement = FALSE) {
+  processed <- tibble(original_names = names) %>%
+    # Remove any extra whitespace in the question number part
+    mutate(original_names = str_replace_all(original_names, "K\\.\\s*(\\d+)\\.\\s*(\\d+)", "K.\\1.\\2")) %>%
     # Extract question numbers and statements
     mutate(
       question_number = str_extract(original_names, "^K\\.\\d+\\.\\d+"),
@@ -71,6 +136,7 @@ process_column_names <- function(names) {
       sub_number_padded = ifelse(!is.na(sub_number), str_pad(sub_number, 2, pad = "0"), NA_character_),
       # Rejoin main and sub numbers
       question_number_padded = ifelse(!is.na(question_number), str_c("k", main_number_padded, "_", sub_number_padded, sep = ""), original_names),
+      # Extract the statement text inside square brackets
       statement = str_extract(original_names, "\\[(.*?)\\]")
     ) %>%
     # Group by padded question number to add indexes
@@ -82,9 +148,16 @@ process_column_names <- function(names) {
       final_name = ifelse(!is.na(statement), 
                           paste(question_number_padded, paste0("i", str_pad(index, 2, pad = "0")), sep = "_"),
                           tolower(question_number_padded))
-    ) |> 
-    # Select the final column for the output
-    pull(final_name)
+    )
+  
+  # Return based on return_statement argument
+  if (return_statement) {
+    processed %>%
+      select(final_name, statement)
+  } else {
+    processed %>%
+      pull(final_name)
+  }
 }
 
 generate_fake_responses_df <- function(col_names, n, column_definition) {

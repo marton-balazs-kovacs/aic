@@ -8,7 +8,7 @@ editor_options:
 ## Setup
 ### Loading packages
 
-```{r}
+```{r setup, message=FALSE, warning=FALSE}
 library(tidyverse)
 # library(googlesheets4)
 ```
@@ -28,19 +28,19 @@ source(here::here("R/utils.R"))
 
 ### Read data
 
-```{r}
+```{r message=FALSE}
 read_data_with_condition <- function(file_path) {
-  condition <- str_extract(file_path, "(?<=con)\\d+") # Extract condition number
-  read_csv(file_path) %>%
-    mutate(condition = condition) # Add the condition as a column
+  # Read the CSV
+  read_csv(file_path) |> 
+    mutate(file_path = file_path)
 }
 
 # Paths to the data files
-file_paths <- c(
-  here::here("data/raw/aic_raw_fake_con1_data.csv"),
-  here::here("data/raw/aic_raw_fake_con2_data.csv"),
-  here::here("data/raw/aic_raw_fake_con3_data.csv"),
-  here::here("data/raw/aic_raw_fake_con4_data.csv")
+file_paths <- list.files(
+  here::here("data/raw/"),
+  full.names = TRUE,
+  recursive = FALSE,
+  pattern = "\\.[[:alnum:]]+$" # Matches files with an extension (e.g., .csv, .txt)
 )
 
 # Read and combine all datasets
@@ -50,27 +50,74 @@ raw <- map_dfr(file_paths, read_data_with_condition)
 List column names.
 
 ```{r}
-colnames(raw)
+column_names <-
+  tibble(index = seq_along(colnames(raw)),
+         colname = colnames(raw))
+
+# print(n = 155, column_names)
+```
+
+### Delete test responses
+
+Any response before the start of the official data collection will be excluded.
+
+```{r}
+start_date <- dmy_hms("17/10/2024 23:59:59")
+
+raw <-
+  raw |> 
+  mutate(Timestamp =  parse_date_time(Timestamp, orders = c("mdy HMS", "dmy HMS")))
+
+test_responses <- raw |> filter(Timestamp <= start_date)
+
+raw <-
+  raw |> 
+  filter(Timestamp >= start_date)
+```
+
+It looks like the two test responses filled out a previous version of the survey. Thus, because of them, additional columns are in the database. We will delete these columns now. These respondents were in ver 0. However, one of the column is duplicated in this version of the survey so we have the data for this one column under a different name than for the other 3 versions. We coalesce these columns too.
+
+```{r}
+to_exclude <-
+  raw |> 
+  select(104:125)
+
+raw <-
+  raw |> 
+  select(-(104:125))
+```
+
+Collapsing the duplicate columns.
+
+```{r}
+raw <- raw %>%
+  mutate(
+    "K.6.1. Kérjük, hogy a következő állításoknál jelöld egy 5 fokú skálán, hogy mennyire értesz egyet velük. Az 1 azt jelenti, hogy egyáltalán nem értesz egyet az állítással, míg az 5 azt jelenti, hogy teljes mértékben egyetértesz vele. [Aggódom amiatt, hogy az önvezető járművek az engedélyem nélkül más célokra használják fel személyes adataimat.]" = coalesce(
+      `K.6.1. Kérjük, hogy a következő állításoknál jelöld egy 5 fokú skálán, hogy mennyire értesz egyet velük. Az 1 azt jelenti, hogy egyáltalán nem értesz egyet az állítással, míg az 5 azt jelenti, hogy teljes mértékben egyetértesz vele. [Aggódom amiatt, hogy az önvezető járművek az engedélyem nélkül más célokra használják fel személyes adataimat.]...143`,
+      `K.6.1. Kérjük, hogy a következő állításoknál jelöld egy 5 fokú skálán, hogy mennyire értesz egyet velük. Az 1 azt jelenti, hogy egyáltalán nem értesz egyet az állítással, míg az 5 azt jelenti, hogy teljes mértékben egyetértesz vele. [Aggódom amiatt, hogy az önvezető járművek az engedélyem nélkül más célokra használják fel személyes adataimat.]`
+    )
+  ) %>%
+  select(-`K.6.1. Kérjük, hogy a következő állításoknál jelöld egy 5 fokú skálán, hogy mennyire értesz egyet velük. Az 1 azt jelenti, hogy egyáltalán nem értesz egyet az állítással, míg az 5 azt jelenti, hogy teljes mértékben egyetértesz vele. [Aggódom amiatt, hogy az önvezető járművek az engedélyem nélkül más célokra használják fel személyes adataimat.]...143`)
 ```
 
 ### Renaming variables
 
 ```{r}
-new_colnames <- process_column_names(names(raw))
+# New column names with item descriptions
+processed_names <- process_column_names(names(raw),  return_statement = TRUE)
 
-raw <- set_names(raw, new_colnames)
+new_colnames <- processed_names$final_name
+  
+raw <- set_names(raw, new_colnames) |> 
+  rename(informed_consent = "kijelentem, hogy 18 éves elmúltam, a kutatásban való részvételem körülményeiről részletes tájékoztatást kaptam, a feltételekkel egyetértek, a részvételt vállalom.")
 ```
 
-### Delete test responses
-
-We started the official data collection at XXX so any response before that date will be excluded.
+Add the condition variable based on file paths.
 
 ```{r}
-start_date <- dmy("09/08/2023")
-raw <-
-  raw |> 
-  mutate(timestamp = dmy_hms(str_replace_all(timestamp, " ", ":"))) %>%
-  filter(timestamp >= start_date)
+# Extract the number after "ver " as the condition number
+raw <- raw |> 
+  mutate(condition = str_extract(file_path, "ver\\s*(\\d+)") |> str_extract("\\d+"))
 ```
 
 ### Delete respondents who did not pay attention
@@ -78,7 +125,7 @@ raw <-
 The number of respondents who failed the attention check.
 
 ```{r}
-nrow(filter(raw, k03_03 == 4))
+nrow(filter(raw, k03_03 != 4))
 ```
 
 Excluding.
@@ -86,13 +133,13 @@ Excluding.
 ```{r}
 raw <-
   raw |> 
-  filter(k03_03 != 4)
+  filter(k03_03 == 4)
 ```
 
 The number of respondents who did not understand the abstract.
 
 ```{r}
-nrow(filter(raw, k07_01 != "4 A kutatás azt vizsgálta, hogy milyen hatásai voltak egy iskolai elhízás-megelőzési programnak."))
+count(raw, k07_01)
 ```
 
 Excluding.
@@ -100,13 +147,13 @@ Excluding.
 ```{r}
 raw <-
   raw |> 
-  filter(k07_01 == "4 A kutatás azt vizsgálta, hogy milyen hatásai voltak egy iskolai elhízás-megelőzési programnak.")
+  filter(k07_01 == "A kutatás azt vizsgálta, hogy milyen hatásai voltak egy iskolai elhízás-megelőzési programnak.")
 ```
 
 Number of respondents who could not concentrate at all.
 
 ```{r}
-nrow(filter(raw, k07_03 == "4 Nem, már az elején néhány kérdés után abbahagytam a pontos értelmezést."))
+count(raw, k07_03)
 ```
 
 Excluding.
@@ -114,7 +161,7 @@ Excluding.
 ```{r}
 raw <-
   raw |> 
-  filter(k07_03 != "4 Nem, már az elején néhány kérdés után abbahagytam a pontos értelmezést.")
+  filter(k07_03 != "Nem, már az elején néhány kérdés után abbahagytam a pontos értelmezést.")
 ```
 
 The number of respondents remaining after the exclusions.
@@ -123,26 +170,214 @@ The number of respondents remaining after the exclusions.
 nrow(raw)
 ```
 
-### Calculating composite scores for question batteries
+### Adding condition based variables
 
-Outcome question (k01_02)
+There are four scenarios based on two conditions (use of AI and assuming responsibility):
+
+* No AI use - Not assuming responsibility (con 0)
+* No AI use - Assuming responsibility (con 3)
+* Using AI - Not assuming responsibility (con 1)
+* Using AI - Assuming responsibility (con 2)
 
 ```{r}
 raw <-
   raw |> 
-  mutate(across(starts_with("k01_02"), ~as.numeric(str_extract(., "\\d+")), .names = "num_{.col}")) %>%
-  mutate(k01_02_composite = rowSums(select(., starts_with("num_k01_02")), na.rm = TRUE)) %>%
-  select(-starts_with("num_k01_02"))
+  mutate(
+    is_ai = case_when(
+    condition %in% c(1, 2) ~ 1L,
+    condition %in% c(3, 0) ~ 0L
+  ),
+  is_responsibility = case_when(
+    condition %in% c(1, 0) ~ 0L,
+    condition %in% c(2, 3) ~ 1L
+  ))
+```
+
+### Transforming Likert-type scale values to numbers
+
+```{r}
+raw <-
+  raw |>
+  mutate(across(
+    matches(
+      "^k01_02_i|^k03_02_i|^k04_01_i|^k05_01_i|^k06_01_i|^k07_02_i"
+    ),
+    ~ as.numeric(str_extract(., "\\d+"))
+  ))
+```
+
+### Change the direction of reversed items.
+
+```{r}
+raw <-
+  raw |>
+  # Main output scale reverse coded items
+  mutate(across(c(k01_02_i01, k01_02_i05, k01_02_i08),
+                ~ 8 - .)) |>
+  # GAISS negative scale reverse coded
+  mutate(across(
+    c(
+      k03_02_i13,
+      k03_02_i14,
+      k03_02_i15,
+      k03_02_i16,
+      k03_02_i17,
+      k03_02_i18,
+      k03_02_i19,
+      k03_02_i20
+    ),
+    ~ 6 - .
+  )) |>
+  # Reverse code items in the attitudes towards science in general
+  mutate(across(
+    c(
+      k04_01_i01,
+      k04_01_i02,
+      k04_01_i03,
+      k04_01_i04,
+      k04_01_i06,
+      k04_01_i08,
+      k04_01_i13,
+      k04_01_i17,
+      k04_01_i18,
+      k04_01_i19,
+      k04_01_i20,
+      k04_01_i21
+    ),
+    ~ 6 - .
+  )) |>
+  # Reverse code algorithm aversion scale
+  mutate(across(
+    c(
+      k05_01_i01,
+      k05_01_i02,
+      k05_01_i04,
+      k05_01_i05,
+      k05_01_i06,
+      k05_01_i08,
+      k05_01_i13,
+      k05_01_i15,
+      k05_01_i16,
+      k05_01_i18,
+      k05_01_i19,
+      k05_01_i20,
+      k05_01_i21,
+      k05_01_i22,
+      k05_01_i24,
+      k05_01_i25,
+      k05_01_i26,
+      k05_01_i27,
+      k05_01_i28
+    ),
+    ~ 6 - .
+  ))
+```
+
+### Converting demographic variables
+
+```{r echo=FALSE}
+count(raw, k02_03)
+
+raw <-
+  raw |> 
+  mutate(
+    k02_03_num = case_when(
+      k02_03 == "Általános iskola" ~ 8,
+      k02_03 == "Középiskola" ~ 12,
+      k02_03 == "Egyetem (alapképzés)" ~ 15,
+      k02_03 == "Egyetem (mesterképzés)" ~ 17,
+      k02_03 == "Doktori fokozat" ~ 21
+    ),
+    k02_04_num = case_when(
+      k02_04 == "Általános iskola" ~ 8,
+      k02_04 == "Középiskola" ~ 12,
+      k02_04 == "Egyetem (alapképzés)" ~ 15,
+      k02_04 == "Egyetem (mesterképzés)" ~ 17,
+      k02_04 == "Doktori fokozat" ~ 21
+    )
+  )
+```
+
+We translate some variable values to English so that we can present them in a table.
+
+```{r}
+
+raw <-
+  raw |> 
+    mutate(
+    k02_03 = case_when(
+      k02_03 == "Általános iskola" ~ "Elementary school",
+      k02_03 == "Középiskola" ~ "Highschool",
+      k02_03 == "Egyetem (alapképzés)" ~ "University (bachelor)",
+      k02_03 == "Egyetem (mesterképzés)" ~ "University (masters)",
+      k02_03 == "Doktori fokozat" ~ "PhD"
+    ),
+    k02_04 = case_when(
+      k02_04 == "Általános iskola" ~ "Elementary school",
+      k02_04 == "Középiskola" ~ "Highschool",
+      k02_04 == "Egyetem (alapképzés)" ~ "University (bachelor)",
+      k02_04 == "Egyetem (mesterképzés)" ~ "University (masters)",
+      k02_04 == "Doktori fokozat" ~ "PhD"
+    ),
+    k02_01 = case_when(
+      k02_01 == "Férfi" ~ "Male",
+      k02_01 == "Nem kívánok válaszolni" ~ "Wishes not to respond",
+      k02_01 == "Nő" ~ "Female"
+    ),
+    k02_05 = case_when(
+      k02_05 == "Felső 30%" ~ "Top 30%",
+      k02_05 == "Középső 40%" ~ "Middle 40%",
+      k02_05 == "Legszegényebb 30 %" ~ "Bottom 30%"
+    )
+  )
+```
+
+### Calculating composite scores for question batteries and subscales
+
+Outcome question (k01_02) measuring the respondents perceived credibility of the study presented in the abstract.
+
+```{r}
+raw <-
+  raw |>
+  mutate(k01_02_composite = rowSums(across(starts_with("k01_02_")), na.rm = TRUE))
 ```
 
 Attitudes towards AI (k03_02)
 
+The original article that introduced this measure do not recommend the creation of one composite score from the negative and positive items.
+
 ```{r}
 raw <-
-  raw |> 
-  mutate(across(starts_with("k03_02"), ~as.numeric(str_extract(., "\\d+")), .names = "num_{.col}")) %>%
-  mutate(k03_02_composite = rowSums(select(., starts_with("num_k03_02")), na.rm = TRUE)) %>%
-  select(-starts_with("num_k03_02"))
+  raw |>
+  mutate(
+    k03_02_positive = rowSums(across(
+      c(
+        k03_02_i01,
+        k03_02_i02,
+        k03_02_i03,
+        k03_02_i04,
+        k03_02_i05,
+        k03_02_i06,
+        k03_02_i07,
+        k03_02_i09,
+        k03_02_i10,
+        k03_02_i11,
+        k03_02_i12
+      )
+    ), na.rm = TRUE),
+    k03_02_negative = rowSums(across(
+      c(
+        k03_02_i13,
+        k03_02_i14,
+        k03_02_i15,
+        k03_02_i16,
+        k03_02_i17,
+        k03_02_i18,
+        k03_02_i19,
+        k03_02_i20
+      )
+    ), na.rm = TRUE)
+  )
 ```
 
 Attitudes towards science in general (k04_01)
@@ -150,9 +385,7 @@ Attitudes towards science in general (k04_01)
 ```{r}
 raw <-
   raw |> 
-  mutate(across(starts_with("k04_01"), ~as.numeric(str_extract(., "\\d+")), .names = "num_{.col}")) %>%
-  mutate(k04_01_composite = rowSums(select(., starts_with("num_k04_01")), na.rm = TRUE)) %>%
-  select(-starts_with("num_k04_01"))
+  mutate(k04_01_composite = rowSums(across(starts_with("k04_01")), na.rm = TRUE))
 ```
 
 Attitudes towards the researchers of the current study (k04_02)
@@ -160,56 +393,44 @@ Attitudes towards the researchers of the current study (k04_02)
 ```{r}
 raw <-
   raw |> 
-  mutate(across(starts_with("k04_02"), ~as.numeric(str_extract(., "\\d+")), .names = "num_{.col}")) %>%
-  mutate(k04_02_composite = rowSums(select(., starts_with("num_k04_02")), na.rm = TRUE)) %>%
-  select(-starts_with("num_k04_02"))
+  mutate(k04_02_expertise = rowSums(across(c(k04_02_i01, k04_02_i02, k04_02_i03, k04_02_i04, k04_02_i05, k04_02_i06)), na.rm = TRUE),
+         k04_02_integrity = rowSums(across(c(k04_02_i07, k04_02_i08, k04_02_i09, k04_02_i10)), na.rm = TRUE),
+         k04_02_benevolence = rowSums(across(c(k04_02_i11, k04_02_i12, k04_02_i13, k04_02_i14)), na.rm = TRUE),
+         k04_02_composite = rowSums(across(c(k04_02_expertise, k04_02_integrity, k04_02_benevolence)), na.rm = TRUE)
+         )
 ```
 
-algorithm aversion (k05_01)
+Algorithm aversion (k05_01)
+
+An initial version of the algorithm aversion scale developed by Sarah Ruth Melick was used to test for general algorithm aversion. Melick used EFA and CFA to create a 10 item scale from the initial set of items. However, the final 10 item scale is slightly differently worded than the original set of items. Thus, it is not possible to filter the original set to the final and validated battery of general algorithm aversion scale. However, because the initial set was not consistent we do not expect the composite score created based on the whole set to have a high internal consistency and be useful to measure algorithm aversion accurately. Regardless, we create the composite score for exploration purposes.
 
 ```{r}
 raw <-
   raw |> 
-  mutate(across(starts_with("k05_01"), ~as.numeric(str_extract(., "\\d+")), .names = "num_{.col}")) %>%
-  mutate(k05_01_composite = rowSums(select(., starts_with("num_k05_01")), na.rm = TRUE)) %>%
-  select(-starts_with("num_k05_01"))
+  mutate(k05_01_composite = rowSums(select(across(starts_with("num_k05_01"))), na.rm = TRUE))
 ```
 
-attitudes towards autonomous vehicles (k06_01)
+Acceptance of autonomous vehicles (k06_01)
 
-```{r}
-raw <-
-  raw |> 
-  mutate(across(starts_with("k06_01"), ~as.numeric(str_extract(., "\\d+")), .names = "num_{.col}")) %>%
-  mutate(k06_01_composite = rowSums(select(., starts_with("num_k06_01")), na.rm = TRUE)) %>%
-  select(-starts_with("num_k06_01"))
-```
-
-### Adding condition based variables
-
-There are four scenarios based on two conditions (use of AI and assuming responsibility):
-* No AI use - Not assuming responsibility (con 1)
-* No AI use - Assuming responsibility (con 2)
-* Using AI - Not assuming responsibility (con 3)
-* Using AI - Assuming responsibility (con 4)
+The items for measuring peoples acceptance of autonomous vehicles was adapted to Hungarian from a study that utilized a diverse set of measures based on publish literature to explore the relationship between different factors affecting peoples acceptance of autonomous vehicles. Thus, we do not expect a composite score containing all the measures to have a high internal consistency. We use all factors separately in further analysis.
 
 ```{r}
 raw <-
   raw |> 
   mutate(
-    is_ai = case_when(
-    condition %in% c(1, 2) ~ 0L,
-    condition %in% c(3, 4) ~ 1L
-  ),
-  is_responsibility = case_when(
-    condition %in% c(1, 3) ~ 0L,
-    condition %in% c(2, 4) ~ 1L
-  ))
+    k06_01_ease_of_use = rowSums(across(c(k06_01_i01, k06_01_i02, k06_01_i03, k06_01_i04)), na.rm = TRUE),
+    k06_01_usefulness = rowSums(across(c(k06_01_i05, k06_01_i06, k06_01_i07, k06_01_i08, k06_01_i09)), na.rm = TRUE),
+    k06_01_safety_risk = rowSums(across(c(k06_01_i10, k06_01_i11)), na.rm = TRUE),
+    k06_01_privacy_risk = rowSums(across(c(k06_01_i12, k06_01_i13, k06_01_i23)), na.rm = TRUE),
+    k06_01_trust = rowSums(across(c(k06_01_i14, k06_01_i15, k06_01_i16)), na.rm = TRUE),
+    k06_01_attitude = rowSums(across(c(k06_01_i17, k06_01_i18, k06_01_i19)), na.rm = TRUE),
+    k06_01_intention_to_use = rowSums(across(c(k06_01_i20, k06_01_i21, k06_01_i22)), na.rm = TRUE)
+    )
 ```
 
 ### Save processed data
 
 ```{r}
-write_csv(raw, here::here("data/processed/aic_processed_fake_data.csv"))
+write_csv(raw, here::here("data/processed/aic_processed_data.csv"))
 ```
 

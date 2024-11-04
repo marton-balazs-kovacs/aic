@@ -8,7 +8,7 @@ editor_options:
 ## Setup
 ### Loading packages
 
-```{r}
+```{r setup, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(tidyLPA)
 library(gt)
@@ -22,9 +22,408 @@ source(here::here("R/utils.R"))
 
 ### Read data
 
+```{r message=FALSE}
+processed <- readr::read_csv(here::here("data/processed/aic_processed_data.csv"))
+# colnames(processed)
+
+processed <- processed |>
+  mutate(
+    is_ai = case_when(is_ai == 0L ~ "No",
+                      is_ai == 1L ~ "Yes"),
+    is_responsibility = case_when(is_responsibility == 0L ~ "No",
+                                  is_responsibility == 1L ~ "Yes"),
+    row_id = row_number()
+  )
+```
+
+### Demographic analysis
+
 ```{r}
-# Needs to be replaced with actual data after data collection is completed
-processed <- readr::read_csv(here::here("data/processed/aic_processed_fake_data.csv"))
+processed |>
+  select(k02_01, k02_03, k02_04, k02_05) |>
+  pivot_longer(cols = everything(), names_to = "variable") |>
+  calculate_percentage(response_var = value, grouping_var = variable) |>
+  mutate(
+    variable = case_when(
+      variable == "k02_01" ~ "Gender",
+      variable == "k02_03" ~ "Mother's highest education",
+      variable == "k02_04" ~ "Father's highest education",
+      variable == "k02_05" ~ "Economic status"
+    ),
+    factor = if_else(!duplicated(variable), variable, NA_character_)
+  ) |>
+  select(factor, value, n, percentage) |>
+  gt() |>
+  tab_options(table.font.size = "small") |>
+  fmt_missing(columns = everything(), missing_text = "") |>
+  cols_label(
+    value = md("**Value**"),
+    n = md("**N**"),
+    percentage = md("**Percentage**"),
+    factor = md("**Factor**")
+  )
+```
+
+How often do you use ChatGPT or other generative AI tools?
+
+```{r}
+processed |> 
+  calculate_percentage(response_var = k03_01) |> 
+  mutate(
+    k03_01 = case_when(
+      k03_01 == "Soha" ~ "Never",
+      k03_01 == "Naponta" ~ "Daily",
+      k03_01 == "Naponta többször" ~ "Multiple times daily",
+      k03_01 == "Hetente egyszer" ~ "Once a week",
+      k03_01 == "Hetente többször" ~ "Multiple times weekly",
+      k03_01 == "Havonta kevesebb mint egyszer" ~ "Less than once monthly",
+      k03_01 == "Havonta egyszer" ~ "Once monthly"
+    ),
+    k03_01 = factor(k03_01, levels = c("Never", "Daily", "Multiple times daily", "Once a week", "Multiple times weekly", "Less than once monthly", "Once monthly"))
+  ) |> 
+  arrange(k03_01) |> 
+  select(-N, -relative_frequency) |> 
+  rename(levels = k03_01) |> 
+    gt() |>
+  tab_options(table.font.size = "small") |>
+  fmt_missing(columns = everything(), missing_text = "") |>
+  cols_label(
+    levels = md("**Levels**"),
+    n = md("**N**"),
+    percentage = md("**Percentage**"),
+  )
+```
+
+### Main effects
+
+AI use main effect.
+
+```{r}
+processed |>
+  group_by(is_ai) |>
+  summarise(across(
+    starts_with("k01_02_i"),
+    list(
+      mean = ~ round(mean(.x, na.rm = TRUE), 2),
+      sd = ~ round(sd(.x, na.rm = TRUE), 2),
+      n = ~ n()
+    ),
+    .names = "{.col}-{.fn}"
+  )) |>
+  pivot_longer(
+    -is_ai,
+    names_to = c("items", "stat"),
+    names_sep = "-",
+    values_to = "values"
+  ) |>
+  pivot_wider(names_from = is_ai, values_from = values) |>
+  pivot_wider(names_from = stat, values_from = c(No, Yes)) |>
+  mutate(mean_diff = round(No_mean - Yes_mean, 2),
+         sd_diff = round(sqrt((No_sd ^ 2 / No_n) + (Yes_sd ^ 2 / Yes_n)), 2)) |>
+  mutate(
+    No = paste(No_mean, No_sd, sep = "/"),
+    Yes = paste(Yes_mean, Yes_sd, sep = "/"),
+    Difference = paste(mean_diff, sd_diff, sep = "/")
+  ) |>
+  select(items, No, Yes, Difference) 
+```
+
+Responsibility main effect.
+
+```{r}
+processed |>
+  group_by(is_responsibility) |>
+  summarise(across(
+    starts_with("k01_02_i"),
+    list(
+      mean = ~ round(mean(.x, na.rm = TRUE), 2),
+      sd = ~ round(sd(.x, na.rm = TRUE), 2),
+      n = ~ n()
+    ),
+    .names = "{.col}-{.fn}"
+  )) |>
+  pivot_longer(
+    -is_responsibility,
+    names_to = c("items", "stat"),
+    names_sep = "-",
+    values_to = "values"
+  ) |>
+  pivot_wider(names_from = is_responsibility, values_from = values) |>
+  pivot_wider(names_from = stat, values_from = c(No, Yes)) |>
+  mutate(mean_diff = round(No_mean - Yes_mean, 2),
+         sd_diff = round(sqrt((No_sd ^ 2 / No_n) + (Yes_sd ^ 2 / Yes_n)), 2)) |>
+  mutate(
+    No = paste(No_mean, No_sd, sep = "/"),
+    Yes = paste(Yes_mean, Yes_sd, sep = "/"),
+    Difference = paste(mean_diff, sd_diff, sep = "/")
+  ) |>
+  select(items, No, Yes, Difference) 
+```
+
+Tables for the main outcome variable based on demographic variables.
+
+Gender.
+
+```{r}
+processed |>
+  filter(k02_01 != "Wishes not to respond") |> 
+  group_by(k02_01) |>
+  summarise(across(
+    starts_with("k01_02_i"),
+    list(
+      mean = ~ round(mean(.x, na.rm = TRUE), 2),
+      sd = ~ round(sd(.x, na.rm = TRUE), 2),
+      n = ~ n()
+    ),
+    .names = "{.col}-{.fn}"
+  )) |>
+  pivot_longer(
+    -k02_01,
+    names_to = c("items", "stat"),
+    names_sep = "-",
+    values_to = "values"
+  ) |>
+  pivot_wider(names_from = k02_01, values_from = values) |>
+  pivot_wider(names_from = stat, values_from = c(Male, Female)) |>
+  mutate(mean_diff = round(Male_mean - Female_mean, 2),
+         sd_diff = round(sqrt((Male_sd ^ 2 / Male_n) + (Female_sd ^ 2 / Female_n)), 2)) |>
+  mutate(
+    Male = paste(Male_mean, Male_sd, sep = "/"),
+    Female = paste(Female_mean, Female_sd, sep = "/"),
+    Difference = paste(mean_diff, sd_diff, sep = "/")
+  ) |>
+  select(items, Male, Female, Difference) 
+```
+
+Mother's education.
+
+```{r}
+processed |>
+  group_by(k02_03) |>
+  summarise(across(
+    starts_with("k01_02_i"),
+    list(
+      mean = ~ round(mean(.x, na.rm = TRUE), 2),
+      sd = ~ round(sd(.x, na.rm = TRUE), 2),
+      n = ~ n()
+    ),
+    .names = "{.col}-{.fn}"
+  )) |>
+  pivot_longer(
+    -k02_03,
+    names_to = c("items", "stat"),
+    names_sep = "-",
+    values_to = "values"
+  ) |>
+  pivot_wider(names_from = k02_03, values_from = values) |>
+  pivot_wider(
+    names_from = stat,
+    values_from = c(
+      `Elementary school`,
+      Highschool,
+      PhD,
+      `University (bachelor)`,
+      `University (masters)`
+    )
+  ) |>
+  mutate(
+    mean_diff = round(`Elementary school_mean` - PhD_mean, 2),
+    sd_diff = round(sqrt((`Elementary school_sd` ^ 2 / `Elementary school_n`) + (PhD_sd ^ 2 / PhD_n)
+    ), 2)
+  ) |>
+  mutate(
+    `Elementary school` = paste(`Elementary school_mean`, `Elementary school_sd`, sep = "/"),
+    Highschool = paste(Highschool_mean, Highschool_sd, sep = "/"),
+    `University (bachelor)` = paste(`University (bachelor)_mean`, `University (bachelor)_sd`, sep = "/"),
+    `University (masters)` = paste(`University (masters)_mean`, `University (masters)_sd`, sep = "/"),
+    PhD = paste(PhD_mean, PhD_sd, sep = "/"),
+    Difference = paste(mean_diff, sd_diff, sep = "/")
+  ) |>
+  select(
+    items,
+    `Elementary school`,
+    Highschool,
+    `University (bachelor)`,
+    `University (masters)`,
+    PhD,
+    Difference
+  ) 
+```
+
+Father's education.
+
+```{r}
+processed |>
+  group_by(k02_04) |>
+  summarise(across(
+    starts_with("k01_02_i"),
+    list(
+      mean = ~ round(mean(.x, na.rm = TRUE), 2),
+      sd = ~ round(sd(.x, na.rm = TRUE), 2),
+      n = ~ n()
+    ),
+    .names = "{.col}-{.fn}"
+  )) |>
+  pivot_longer(
+    -k02_04,
+    names_to = c("items", "stat"),
+    names_sep = "-",
+    values_to = "values"
+  ) |>
+  pivot_wider(names_from = k02_04, values_from = values) |>
+  pivot_wider(
+    names_from = stat,
+    values_from = c(
+      `Elementary school`,
+      Highschool,
+      PhD,
+      `University (bachelor)`,
+      `University (masters)`
+    )
+  ) |>
+  mutate(
+    mean_diff = round(`Elementary school_mean` - PhD_mean, 2),
+    sd_diff = round(sqrt((`Elementary school_sd` ^ 2 / `Elementary school_n`) + (PhD_sd ^ 2 / PhD_n)
+    ), 2)
+  ) |>
+  mutate(
+    `Elementary school` = paste(`Elementary school_mean`, `Elementary school_sd`, sep = "/"),
+    Highschool = paste(Highschool_mean, Highschool_sd, sep = "/"),
+    `University (bachelor)` = paste(`University (bachelor)_mean`, `University (bachelor)_sd`, sep = "/"),
+    `University (masters)` = paste(`University (masters)_mean`, `University (masters)_sd`, sep = "/"),
+    PhD = paste(PhD_mean, PhD_sd, sep = "/"),
+    Difference = paste(mean_diff, sd_diff, sep = "/")
+  ) |>
+  select(
+    items,
+    `Elementary school`,
+    Highschool,
+    `University (bachelor)`,
+    `University (masters)`,
+    PhD,
+    Difference
+  ) 
+```
+
+Economic status.
+
+```{r}
+processed |>
+  group_by(k02_05) |>
+  summarise(across(
+    starts_with("k01_02_i"),
+    list(
+      mean = ~ round(mean(.x, na.rm = TRUE), 2),
+      sd = ~ round(sd(.x, na.rm = TRUE), 2),
+      n = ~ n()
+    ),
+    .names = "{.col}-{.fn}"
+  )) |>
+  pivot_longer(
+    -k02_05,
+    names_to = c("items", "stat"),
+    names_sep = "-",
+    values_to = "values"
+  ) |>
+  pivot_wider(names_from = k02_05, values_from = values) |>
+  pivot_wider(
+    names_from = stat,
+    values_from = c(
+      `Bottom 30%`,
+     `Middle 40%`,
+     `Top 30%`
+    )
+  ) |>
+  mutate(
+    mean_diff = round(`Bottom 30%_mean` - `Top 30%_mean`, 2),
+    sd_diff = round(sqrt((`Bottom 30%_sd` ^ 2 / `Bottom 30%_n`) + (`Top 30%_sd` ^ 2 / `Top 30%_n`)
+    ), 2)
+  ) |>
+  mutate(
+    `Bottom 30%` = paste(`Bottom 30%_mean`, `Bottom 30%_sd`, sep = "/"),
+    `Middle 40%` = paste(`Middle 40%_mean`, `Middle 40%_sd`, sep = "/"),
+    `Top 30%` = paste(`Top 30%_mean`, `Top 30%_sd`, sep = "/"),
+    Difference = paste(mean_diff, sd_diff, sep = "/")
+  ) |>
+  select(
+    items,
+    `Bottom 30%`,
+    `Middle 40%`,
+`Top 30%`,
+    Difference
+  ) 
+```
+
+### Interaction
+
+Interaction effects for the main outcome variable between modifying factors and AI use.
+
+Gender.
+
+```{r}
+processed |>
+  filter(k02_01 != "Wishes not to respond") |> 
+  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_01)
+```
+
+Mother's education. Excluded elementary school because of the low number of responses.
+
+```{r}
+count(processed, k02_03)
+
+processed |>
+  filter(k02_03 != "Elementary school") |>
+  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_03)
+```
+
+Father's education.
+
+```{r}
+count(processed, k02_04)
+
+processed |>
+  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_04)
+```
+
+Economic status.
+
+```{r}
+count(processed, k02_05)
+
+processed |>
+  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_05)
+```
+
+Interaction effects for the main outcome variable between modifying factors and explicit responsibility.
+
+Gender.
+
+```{r}
+processed |>
+  filter(k02_01 != "Wishes not to respond") |> 
+  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_01)
+```
+
+Mother's education. Excluded elementary school because of the low number of responses.
+
+```{r}
+processed |>
+  filter(k02_03 != "Elementary school") |>
+  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_03)
+```
+
+Father's education.
+
+```{r}
+processed |>
+  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_04)
+```
+
+Economic status.
+
+```{r}
+processed |>
+  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_05)
 ```
 
 ### Latent Profile Analysis
@@ -34,26 +433,33 @@ processed <- readr::read_csv(here::here("data/processed/aic_processed_fake_data.
 ```{r}
 # Filter the data for the LPA
 renaming_map <- c(
-   "ai_attitude" = "k03_02_composite",
+   "ai_attitude_positive" = "k03_02_positive",
+   "ai_attitude_negative" = "k03_02_negative",
    "science_attitude" = "k04_01_composite",
-   "researcher_attitude" = "k04_02_composite",
-   "algorithm_aversion" = "k05_01_composite" ,
-    "autonomous_vehicles" = "k06_01_composite"
+   "vehicle_ease_of_use" = "k06_01_ease_of_use",
+   "vehicle_usefulness" = "k06_01_usefulness",
+   "vehicle_safety_risk" = "k06_01_safety_risk",
+   "vehicle_privacy_risk" = "k06_01_privacy_risk",
+   "vehicle_trust" = "k06_01_trust",
+   "vehicle_attitude" = "k06_01_attitude",
+   "vehicle_intention_to_use" = "k06_01_intention_to_use"
 )
 
 lpa_data <- processed %>%
-  dplyr::select(k03_02_composite, k04_01_composite, k04_02_composite, k05_01_composite, k06_01_composite) %>%
+  dplyr::select(row_id, k03_02_positive, k03_02_negative, k04_01_composite, k06_01_ease_of_use, k06_01_usefulness, k06_01_safety_risk, k06_01_privacy_risk, k06_01_trust, k06_01_attitude, k06_01_intention_to_use) %>%
   dplyr::rename(!!!renaming_map)
 
+lpa_data_scaled <- lpa_data %>%
+  mutate(across(-row_id, ~ as.vector(scale(.))))
 
 # Fit the model with 5 profiles
-lpa_model <- estimate_profiles(lpa_data, n_profiles = 1:5, models = c(1, 2, 3))
+lpa_model <- estimate_profiles(dplyr::select(lpa_data_scaled, -row_id), n_profiles = 1:5, models = c(1, 2, 3, 6))
 
 # View the summary of the model
 lpa_model
 
 # Get estimates
-get_estimates(lpa_model$model_1_class_3)
+get_estimates(lpa_model$model_6_class_4)
 ```
 
 Visualize the profiles
@@ -63,17 +469,43 @@ plot_profiles(lpa_model)
 ```
 
 ```{r}
-plot_profiles(lpa_model$model_1_class_3)
+plot_profiles(lpa_model$model_6_class_4)
 ```
 
 Get model fits
 
 ```{r}
 get_fit(lpa_model) |>
-  select(Model, Classes, BIC) |> 
+  select(Model, Classes, BIC) |>
+  mutate(is_min_bic = BIC == min(BIC, na.rm = T)) |>  # Identify the row with the lowest BIC
   gt() |>
-  tab_style(style = list(cell_text(weight = "bold")),
-            locations = cells_column_labels())
+  tab_style(
+    style = list(cell_text(weight = "bold")),
+    locations = cells_column_labels()
+  ) |>
+  tab_style(
+    style = list(cell_fill(color = "lightblue")),  # Highlight color for the row
+    locations = cells_body(
+      rows = is_min_bic
+    )
+  ) |>
+  cols_hide(columns = is_min_bic) 
+
+get_fit(lpa_model) |>
+  select(Model, Classes, AIC) |>
+  mutate(is_min_aic = AIC == min(AIC, na.rm = T)) |>  # Identify the row with the lowest BIC
+  gt() |>
+  tab_style(
+    style = list(cell_text(weight = "bold")),
+    locations = cells_column_labels()
+  ) |>
+  tab_style(
+    style = list(cell_fill(color = "lightblue")),  # Highlight color for the row
+    locations = cells_body(
+      rows = is_min_aic
+    )
+  ) |>
+  cols_hide(columns = is_min_aic) 
 ```
 
 Compare different profiles and modals
@@ -85,19 +517,85 @@ compare_solutions(lpa_model, statistics = "BIC")
 Sort participants to profiles.
 
 ```{r}
-processed <- dplyr::left_join(
-  processed,
-  # Get data from model
-  get_data(lpa_model$model_1_class_3),
-  by  = c(
-    "k03_02_composite",
-    "k04_01_composite",
-    "k04_02_composite",
-    "k05_01_composite",
-    "k06_01_composite"
+model_data <- get_data(lpa_model$model_6_class_4)
+
+model_data <- model_data |> 
+  mutate(row_id = lpa_data_scaled$row_id) 
+
+processed_with_classes <- model_data %>%
+  right_join(processed, by = "row_id") |> 
+  mutate(
+    Class = paste("class", Class, sep = "_")
   )
-)
 ```
+
+### Interaction effect by LPA classes
+
+Exploring the interaction between LPA classes and AI use / responsibility on the main outcome variable.
+
+```{r}
+processed_with_classes |>
+  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = Class)
+
+processed_with_classes |>
+  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = Class)
+```
+
+Same but for the attitudes towards the researchers behind the presented abstract.
+
+```{r}
+processed_with_classes |>
+  calculate_interaction_table_data(response_vars = starts_with("k04_02_expertise"), grouping_var = is_ai, factor_var = Class)
+
+processed_with_classes |>
+  calculate_interaction_table_data(response_vars = starts_with("k04_02_expertise"), grouping_var = is_responsibility, factor_var = Class)
+
+processed_with_classes |>
+  calculate_interaction_table_data(response_vars = starts_with("k04_02_integrity"), grouping_var = is_ai, factor_var = Class)
+
+processed_with_classes |>
+  calculate_interaction_table_data(response_vars = starts_with("k04_02_integrity"), grouping_var = is_responsibility, factor_var = Class)
+
+processed_with_classes |>
+  calculate_interaction_table_data(response_vars = starts_with("k04_02_benevolence"), grouping_var = is_ai, factor_var = Class)
+
+processed_with_classes |>
+  calculate_interaction_table_data(response_vars = starts_with("k04_02_benevolence"), grouping_var = is_responsibility, factor_var = Class)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ### AI main effect
 
@@ -156,6 +654,53 @@ ai_main_plot <-
   )
 
 ai_main_plot 
+```
+
+Lets explore the difference by AI main effect without the profiles.
+
+```{r}
+ai_main_noprofile_plot_data <-
+  processed |> 
+  dplyr::select(is_ai, k01_02_composite) |> 
+  mutate(
+    is_ai = case_when(
+      is_ai == 1L ~ "Used",
+      is_ai == 0L ~ "Not used"
+    )
+  ) |> 
+  group_by(is_ai) |> 
+  summarise(
+    mean = mean(k01_02_composite, na.rm = TRUE),
+    sd = sd(k01_02_composite, na.rm = TRUE),
+    n = n(),
+    se = sd / sqrt(n),
+    ci_lower = mean - se * 1.96,
+    ci_upper = mean + se * 1.96
+    )
+
+ai_main_noprofile_plot <-
+  ai_main_noprofile_plot_data |> 
+  ggplot() +
+  aes(
+    x = is_ai,
+    y = mean
+  ) +
+  geom_point(size = 8) +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.1) +
+  scale_y_continuous(limits = c(9, 63), breaks = seq(from = 9, to = 63, by = 9)) +
+  labs(
+    x = "Did the authors use AI during the study?",
+    y = "Mean perceived credibility of the study"
+  ) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.title = element_text(size = 20),
+    axis.text = element_text(size = 18)
+  )
+
+ai_main_noprofile_plot 
 ```
 
 ### Modulating factors of AI main effect
@@ -256,4 +801,115 @@ interaction_plot <-
   )
 
 interaction_plot
+```
+
+### Responsibility main effect
+
+```{r}
+resp_main_plot_data <-
+  processed |> 
+  dplyr::select(is_responsibility, k01_02_composite) |> 
+  mutate(
+    is_responsibility = case_when(
+      is_responsibility == 1L ~ "Used",
+      is_responsibility == 0L ~ "Not used"
+    )
+  ) |> 
+  group_by(is_responsibility) |> 
+  summarise(
+    mean = mean(k01_02_composite, na.rm = TRUE),
+    sd = sd(k01_02_composite, na.rm = TRUE),
+    n = n(),
+    se = sd / sqrt(n),
+    ci_lower = mean - se * 1.96,
+    ci_upper = mean + se * 1.96
+    )
+
+resp_main_plot <-
+  resp_main_plot_data |> 
+  ggplot() +
+  aes(
+    x = is_responsibility,
+    y = mean
+  ) +
+  geom_point(size = 8) +
+  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.1) +
+  scale_y_continuous(limits = c(9, 63), breaks = seq(from = 9, to = 63, by = 9)) +
+  labs(
+    x = "Did the authors take responsibility for the study?",
+    y = "Mean perceived credibility of the study"
+  ) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.title = element_text(size = 20),
+    axis.text = element_text(size = 18)
+  )
+
+resp_main_plot 
+```
+
+## Exploration
+
+```{r}
+cars_science_plot_data <-
+  processed |> 
+  dplyr::select(is_ai, k04_01_composite, k06_01_composite) |> 
+  mutate(
+    is_ai = case_when(
+      is_ai == 1L ~ "Used",
+      is_ai == 0L ~ "Not used"
+    )
+  )
+
+cars_science_plot <-
+  cars_science_plot_data |> 
+  ggplot() +
+  aes(
+    x = k04_01_composite,
+    y = k06_01_composite,
+    color = is_ai
+  ) +
+  geom_point(size = 3) +
+  geom_smooth(method = "lm", se = FALSE) +
+  # scale_x_continuous(limits = c(9, 63), breaks = seq(from = 9, to = 63, by = 9)) +
+  # scale_y_continuous(limits = c(19, 95), breaks = seq(from = 19, to = 95, by = 19), labels = as.character(seq(from = 19, to = 95, by = 19))) +
+  labs(
+    y = "Mean attitude scores towards autonomous vehicles",
+    x = "Mean attitude scores towards science",
+    color = "AI"
+  ) +
+  theme(
+    panel.background = element_blank(),
+    panel.grid = element_blank(),
+    axis.line = element_line(color = "black"),
+    axis.title = element_text(size = 20),
+    axis.text = element_text(size = 18),
+    legend.title = element_text(size = 18),
+    legend.text = element_text(size = 16)
+  )
+
+cars_science_plot 
+```
+
+```{r}
+processed |> 
+  select(k03_01) |> 
+  count(k03_01) |> 
+  arrange(desc(n)) |> 
+  ggplot() +
+  aes(
+    x = fct_reorder(k03_01, n, .desc = TRUE),  # Order k03_01 by n in descending order
+    y = n
+  ) +
+  geom_bar(stat = "identity") +
+  xlab("How often do you use generative AI tools?") +
+  ylab("Count")
+```
+
+```{r}
+processed |> 
+  select(starts_with("k07_02"))
+  
 ```
