@@ -1,3 +1,19 @@
+outcome_var_rename <- function(data, outcome_var) {
+  data |> 
+    mutate(
+      {{outcome_var}} := case_when(
+      {{outcome_var}} == "k01_02_i01" ~ "I believe the research results described in the summary are unreliable.",
+      {{outcome_var}} == "k01_02_i02" ~ "The conclusions drawn in the summary seem well-founded based on the methodology described there.",
+      {{outcome_var}} == "k01_02_i03" ~ "I would be willing to reference the presented results in discussions related to the topic based on the summary.",
+      {{outcome_var}} == "k01_02_i04" ~ "I trust the accuracy of the results reported in the summary.",
+      {{outcome_var}} == "k01_02_i05" ~ "According to the summary, this research does not provide valuable information on reducing adolescent obesity.",
+      {{outcome_var}} == "k01_02_i06" ~  "The study appears to have been conducted consistently and with great care by the researchers.",
+      {{outcome_var}} == "k01_02_i07" ~ "If other researchers were to re-examine the exact same question, they would likely find the intervention equally effective.",
+      {{outcome_var}} == "k01_02_i08" ~ "If I had a child of this age, I would not allow this program to be implemented in their school.",
+      {{outcome_var}} == "k01_02_i09" ~ "I support legally mandating the introduction of these obesity-reducing methods in schools based on this article."
+  ))
+}
+
 calculate_main_table_data <- function(data, response_vars, grouping_var) {
     data |>
     group_by({{ grouping_var }}) |> 
@@ -45,8 +61,48 @@ calculate_interaction_table_data <- function(data, response_vars, grouping_var, 
       Yes = paste(Yes_mean, Yes_sd, sep = "/"),
       Difference = paste(mean_diff, sd_diff, sep = "/")
     ) |>
-    select({{factor_var}}, items, No, Yes, Difference) |> 
-    gt()
+    select({{factor_var}}, items, No, Yes, Difference)
+}
+
+create_interaction_table <- function(data, response_vars, grouping_var, factor_var) {
+  # Calculate and reshape the interaction table data
+  factor_var_name <- deparse(substitute(factor_var))
+  
+  table_data <- data |>
+    calculate_interaction_table_data(response_vars = {{ response_vars }}, grouping_var = {{ grouping_var }}, factor_var = {{ factor_var }}) |>
+    outcome_var_rename(items) |> 
+    pivot_wider(names_from =  {{ factor_var }}, values_from = c(No, Yes, Difference), names_glue = paste0("{", factor_var_name, "}-{.value}")) 
+
+  # Get unique factor labels
+  unique_labels <- unique(data[[deparse(substitute(factor_var))]])
+
+  # Create the gt table
+  gt_table <- table_data |>
+    gt(rowname_col = "items") |>
+    tab_stubhead(label = "Items")
+
+  # Add tab spanners for each unique factor label
+  for (label in unique_labels) {
+    gt_table <- gt_table |>
+      tab_spanner(
+        label = label,
+        columns = matches(paste0("^", label, "-"))
+      )
+  }
+  print(table_data)
+  # Create column labels for No, Yes, and Difference
+  col_labels <- setNames(
+    rep(c("No", "Yes", "Difference"), length(unique_labels)),
+    unlist(lapply(unique_labels, function(label) {
+      paste0(label, "-", c("No", "Yes", "Difference"))
+    }))
+  )
+
+  # Apply the column labels
+  gt_table <- gt_table |>
+    cols_label(.list = col_labels)
+
+  gt_table
 }
 
 calculate_percentage <- function(data, response_var, grouping_var) {

@@ -466,7 +466,9 @@ lpa_model <- estimate_profiles(dplyr::select(lpa_data_scaled, -row_id), n_profil
 lpa_model
 
 # Get estimates
-get_estimates(lpa_model$model_6_class_4)
+lpa_model6_class4 <- get_estimates(lpa_model$model_6_class_4)
+
+lpa_model6_class4
 ```
 
 Visualize the profiles
@@ -541,11 +543,62 @@ processed_with_classes <- model_data %>%
 Exploring the interaction between LPA classes and AI use / responsibility on the main outcome variable.
 
 ```{r}
-processed_with_classes |>
-  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = Class)
+iris %>%   
+  group_by(Species) %>%   
+  slice_max(Sepal.Length, n=5) %>%   
+  group_by(Species) %>% 
+  mutate(row=row_number()) %>% 
+  pivot_longer(-c(Species, row)) %>%
+  mutate(Species = str_to_title(Species),
+         name = gsub("\\.", " ", name)) %>% 
+  pivot_wider(names_from=c(Species, name), values_from=value) %>% 
+  select(-row) %>% 
+  gt() %>% 
+  tab_spanner_delim(
+      delim="_"
+  ) %>% 
+  fmt_missing(
+    columns=everything(),
+    missing_text=""
+  )
+```
 
-processed_with_classes |>
-  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = Class)
+```{r}
+table <- processed_with_classes |>
+  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = Class) |>
+  outcome_var_rename(items) |> 
+  pivot_wider(names_from = Class, values_from = c(No, Yes, Difference),
+              names_glue = "{Class}-{.value}"
+              )
+
+# Get unique class labels
+classes <- unique(processed_with_classes$Class)
+
+gt_table <- table |>
+  gt(rowname_col = "items") |>
+  tab_stubhead(label = "Items")
+
+for (class in classes) {
+  gt_table <- gt_table |>
+    tab_spanner(
+      label = class,
+      columns = matches(paste0("^", class, "-"))
+    )
+}
+
+col_labels <- setNames(
+  rep(c("No", "Yes", "Difference"), length(classes)),
+  unlist(lapply(classes, function(class) {
+    paste0(class, "-", c("No", "Yes", "Difference"))
+  }))
+)
+
+gt_table <- gt_table |>
+  cols_label(.list = col_labels)
+# Display the final gt table
+gt_table
+
+create_interaction_table(processed_with_classes, response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = Class)
 ```
 
 Same but for the attitudes towards the researchers behind the presented abstract.
