@@ -106,8 +106,7 @@ processed |>
     starts_with("k01_02_i"),
     list(
       mean = ~ round(mean(.x, na.rm = TRUE), 2),
-      sd = ~ round(sd(.x, na.rm = TRUE), 2),
-      n = ~ n()
+      sd = ~ round(sd(.x, na.rm = TRUE), 2)
     ),
     .names = "{.col}-{.fn}"
   )) |>
@@ -119,12 +118,10 @@ processed |>
   ) |>
   pivot_wider(names_from = is_ai, values_from = values) |>
   pivot_wider(names_from = stat, values_from = c(No, Yes)) |>
-  mutate(mean_diff = round(No_mean - Yes_mean, 2),
-         sd_diff = round(sqrt((No_sd ^ 2 / No_n) + (Yes_sd ^ 2 / Yes_n)), 2)) |>
+  mutate(Difference = round(No_mean - Yes_mean, 2)) |> 
   mutate(
     No = paste(No_mean, No_sd, sep = "/"),
-    Yes = paste(Yes_mean, Yes_sd, sep = "/"),
-    Difference = paste(mean_diff, sd_diff, sep = "/")
+    Yes = paste(Yes_mean, Yes_sd, sep = "/")
   ) |>
   select(items, No, Yes, Difference) |> 
   outcome_var_rename(items) |> 
@@ -177,8 +174,7 @@ processed |>
     starts_with("k01_02_i"),
     list(
       mean = ~ round(mean(.x, na.rm = TRUE), 2),
-      sd = ~ round(sd(.x, na.rm = TRUE), 2),
-      n = ~ n()
+      sd = ~ round(sd(.x, na.rm = TRUE), 2)
     ),
     .names = "{.col}-{.fn}"
   )) |>
@@ -190,12 +186,10 @@ processed |>
   ) |>
   pivot_wider(names_from = k02_01, values_from = values) |>
   pivot_wider(names_from = stat, values_from = c(Male, Female)) |>
-  mutate(mean_diff = round(Male_mean - Female_mean, 2),
-         sd_diff = round(sqrt((Male_sd ^ 2 / Male_n) + (Female_sd ^ 2 / Female_n)), 2)) |>
+  mutate(Difference = round(Male_mean - Female_mean, 2)) |>
   mutate(
     Male = paste(Male_mean, Male_sd, sep = "/"),
-    Female = paste(Female_mean, Female_sd, sep = "/"),
-    Difference = paste(mean_diff, sd_diff, sep = "/")
+    Female = paste(Female_mean, Female_sd, sep = "/")
   ) |>
   select(items, Male, Female, Difference) |> 
   outcome_var_rename(items) |> 
@@ -211,8 +205,7 @@ processed |>
     starts_with("k01_02_i"),
     list(
       mean = ~ round(mean(.x, na.rm = TRUE), 2),
-      sd = ~ round(sd(.x, na.rm = TRUE), 2),
-      n = ~ n()
+      sd = ~ round(sd(.x, na.rm = TRUE), 2)
     ),
     .names = "{.col}-{.fn}"
   )) |>
@@ -234,17 +227,14 @@ processed |>
     )
   ) |>
   mutate(
-    mean_diff = round(`Elementary school_mean` - PhD_mean, 2),
-    sd_diff = round(sqrt((`Elementary school_sd` ^ 2 / `Elementary school_n`) + (PhD_sd ^ 2 / PhD_n)
-    ), 2)
+    Difference = round(`Elementary school_mean` - PhD_mean, 2)
   ) |>
   mutate(
     `Elementary school` = paste(`Elementary school_mean`, `Elementary school_sd`, sep = "/"),
     Highschool = paste(Highschool_mean, Highschool_sd, sep = "/"),
     `University BA` = paste(`University BA_mean`, `University BA_sd`, sep = "/"),
     `University MA` = paste(`University MA_mean`, `University MA_sd`, sep = "/"),
-    PhD = paste(PhD_mean, PhD_sd, sep = "/"),
-    Difference = paste(mean_diff, sd_diff, sep = "/")
+    PhD = paste(PhD_mean, PhD_sd, sep = "/")
   ) |>
   select(
     items,
@@ -268,8 +258,7 @@ processed |>
     starts_with("k01_02_i"),
     list(
       mean = ~ round(mean(.x, na.rm = TRUE), 2),
-      sd = ~ round(sd(.x, na.rm = TRUE), 2),
-      n = ~ n()
+      sd = ~ round(sd(.x, na.rm = TRUE), 2)
     ),
     .names = "{.col}-{.fn}"
   )) |>
@@ -291,17 +280,14 @@ processed |>
     )
   ) |>
   mutate(
-    mean_diff = round(`Elementary school_mean` - PhD_mean, 2),
-    sd_diff = round(sqrt((`Elementary school_sd` ^ 2 / `Elementary school_n`) + (PhD_sd ^ 2 / PhD_n)
-    ), 2)
+    Difference = round(`Elementary school_mean` - PhD_mean, 2)
   ) |>
   mutate(
     `Elementary school` = paste(`Elementary school_mean`, `Elementary school_sd`, sep = "/"),
     Highschool = paste(Highschool_mean, Highschool_sd, sep = "/"),
     `University BA` = paste(`University BA_mean`, `University BA_sd`, sep = "/"),
     `University MA` = paste(`University MA_mean`, `University MA_sd`, sep = "/"),
-    PhD = paste(PhD_mean, PhD_sd, sep = "/"),
-    Difference = paste(mean_diff, sd_diff, sep = "/")
+    PhD = paste(PhD_mean, PhD_sd, sep = "/")
   ) |>
   select(
     items,
@@ -325,8 +311,7 @@ processed |>
     starts_with("k01_02_i"),
     list(
       mean = ~ round(mean(.x, na.rm = TRUE), 2),
-      sd = ~ round(sd(.x, na.rm = TRUE), 2),
-      n = ~ n()
+      sd = ~ round(sd(.x, na.rm = TRUE), 2)
     ),
     .names = "{.col}-{.fn}"
   )) |>
@@ -346,15 +331,12 @@ processed |>
     )
   ) |>
   mutate(
-    mean_diff = round(`Bottom 30%_mean` - `Top 30%_mean`, 2),
-    sd_diff = round(sqrt((`Bottom 30%_sd` ^ 2 / `Bottom 30%_n`) + (`Top 30%_sd` ^ 2 / `Top 30%_n`)
-    ), 2)
+    Difference = round(`Bottom 30%_mean` - `Top 30%_mean`, 2)
   ) |>
   mutate(
     `Bottom 30%` = paste(`Bottom 30%_mean`, `Bottom 30%_sd`, sep = "/"),
     `Middle 40%` = paste(`Middle 40%_mean`, `Middle 40%_sd`, sep = "/"),
-    `Top 30%` = paste(`Top 30%_mean`, `Top 30%_sd`, sep = "/"),
-    Difference = paste(mean_diff, sd_diff, sep = "/")
+    `Top 30%` = paste(`Top 30%_mean`, `Top 30%_sd`, sep = "/")
   ) |>
   select(
     items,

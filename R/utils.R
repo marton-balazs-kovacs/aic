@@ -44,8 +44,7 @@ calculate_interaction_table_data <- function(data, response_vars, grouping_var, 
       {{response_vars}},
       list(
         mean = ~ round(mean(.x, na.rm = TRUE), 2),
-        sd = ~ round(sd(.x, na.rm = TRUE), 2),
-        n = ~ n()
+        sd = ~ round(sd(.x, na.rm = TRUE), 2)
       ),
       .names = "{.col}-{.fn}"
     )) |>
@@ -57,12 +56,10 @@ calculate_interaction_table_data <- function(data, response_vars, grouping_var, 
     ) |>
     pivot_wider(names_from = {{grouping_var}}, values_from = values) |>
     pivot_wider(names_from = stat, values_from = c(No, Yes)) |>
-    mutate(mean_diff = round(No_mean - Yes_mean, 2),
-           sd_diff = round(sqrt((No_sd ^ 2 / No_n) + (Yes_sd ^ 2 / Yes_n)), 2)) |>
+    mutate(Difference = round(No_mean - Yes_mean, 2)) |>
     mutate(
       No = paste(No_mean, No_sd, sep = "/"),
-      Yes = paste(Yes_mean, Yes_sd, sep = "/"),
-      Difference = paste(mean_diff, sd_diff, sep = "/")
+      Yes = paste(Yes_mean, Yes_sd, sep = "/")
     ) |>
     select({{factor_var}}, items, No, Yes, Difference)
 }
