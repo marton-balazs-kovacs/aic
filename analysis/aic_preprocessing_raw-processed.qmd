@@ -308,15 +308,15 @@ raw <-
     k02_03 = case_when(
       k02_03 == "Általános iskola" ~ "Elementary school",
       k02_03 == "Középiskola" ~ "Highschool",
-      k02_03 == "Egyetem (alapképzés)" ~ "University (bachelor)",
-      k02_03 == "Egyetem (mesterképzés)" ~ "University (masters)",
+      k02_03 == "Egyetem (alapképzés)" ~ "University BA",
+      k02_03 == "Egyetem (mesterképzés)" ~ "University MA",
       k02_03 == "Doktori fokozat" ~ "PhD"
     ),
     k02_04 = case_when(
       k02_04 == "Általános iskola" ~ "Elementary school",
       k02_04 == "Középiskola" ~ "Highschool",
-      k02_04 == "Egyetem (alapképzés)" ~ "University (bachelor)",
-      k02_04 == "Egyetem (mesterképzés)" ~ "University (masters)",
+      k02_04 == "Egyetem (alapképzés)" ~ "University BA",
+      k02_04 == "Egyetem (mesterképzés)" ~ "University MA",
       k02_04 == "Doktori fokozat" ~ "PhD"
     ),
     k02_01 = case_when(

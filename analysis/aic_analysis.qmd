@@ -127,6 +127,7 @@ processed |>
     Difference = paste(mean_diff, sd_diff, sep = "/")
   ) |>
   select(items, No, Yes, Difference) |> 
+  outcome_var_rename(items) |> 
   gt() 
 ```
 
@@ -160,6 +161,7 @@ processed |>
     Difference = paste(mean_diff, sd_diff, sep = "/")
   ) |>
   select(items, No, Yes, Difference) |> 
+  outcome_var_rename(items) |> 
   gt() 
 ```
 
@@ -196,6 +198,7 @@ processed |>
     Difference = paste(mean_diff, sd_diff, sep = "/")
   ) |>
   select(items, Male, Female, Difference) |> 
+  outcome_var_rename(items) |> 
   gt() 
 ```
 
@@ -226,8 +229,8 @@ processed |>
       `Elementary school`,
       Highschool,
       PhD,
-      `University (bachelor)`,
-      `University (masters)`
+      `University BA`,
+      `University MA`
     )
   ) |>
   mutate(
@@ -238,8 +241,8 @@ processed |>
   mutate(
     `Elementary school` = paste(`Elementary school_mean`, `Elementary school_sd`, sep = "/"),
     Highschool = paste(Highschool_mean, Highschool_sd, sep = "/"),
-    `University (bachelor)` = paste(`University (bachelor)_mean`, `University (bachelor)_sd`, sep = "/"),
-    `University (masters)` = paste(`University (masters)_mean`, `University (masters)_sd`, sep = "/"),
+    `University BA` = paste(`University BA_mean`, `University BA_sd`, sep = "/"),
+    `University MA` = paste(`University MA_mean`, `University MA_sd`, sep = "/"),
     PhD = paste(PhD_mean, PhD_sd, sep = "/"),
     Difference = paste(mean_diff, sd_diff, sep = "/")
   ) |>
@@ -247,11 +250,12 @@ processed |>
     items,
     `Elementary school`,
     Highschool,
-    `University (bachelor)`,
-    `University (masters)`,
+    `University BA`,
+    `University MA`,
     PhD,
     Difference
   ) |> 
+  outcome_var_rename(items) |> 
   gt()
 ```
 
@@ -282,8 +286,8 @@ processed |>
       `Elementary school`,
       Highschool,
       PhD,
-      `University (bachelor)`,
-      `University (masters)`
+      `University BA`,
+      `University MA`
     )
   ) |>
   mutate(
@@ -294,8 +298,8 @@ processed |>
   mutate(
     `Elementary school` = paste(`Elementary school_mean`, `Elementary school_sd`, sep = "/"),
     Highschool = paste(Highschool_mean, Highschool_sd, sep = "/"),
-    `University (bachelor)` = paste(`University (bachelor)_mean`, `University (bachelor)_sd`, sep = "/"),
-    `University (masters)` = paste(`University (masters)_mean`, `University (masters)_sd`, sep = "/"),
+    `University BA` = paste(`University BA_mean`, `University BA_sd`, sep = "/"),
+    `University MA` = paste(`University MA_mean`, `University MA_sd`, sep = "/"),
     PhD = paste(PhD_mean, PhD_sd, sep = "/"),
     Difference = paste(mean_diff, sd_diff, sep = "/")
   ) |>
@@ -303,11 +307,12 @@ processed |>
     items,
     `Elementary school`,
     Highschool,
-    `University (bachelor)`,
-    `University (masters)`,
+    `University BA`,
+    `University MA`,
     PhD,
     Difference
   ) |> 
+  outcome_var_rename(items) |> 
   gt()
 ```
 
@@ -358,6 +363,7 @@ processed |>
 `Top 30%`,
     Difference
   ) |> 
+  outcome_var_rename(items) |> 
   gt()
 ```
 
@@ -370,7 +376,7 @@ Gender.
 ```{r}
 processed |>
   filter(k02_01 != "Wishes not to respond") |> 
-  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_01)
+  create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_01)
 ```
 
 Mother's education. Excluded elementary school because of the low number of responses.
@@ -380,7 +386,7 @@ count(processed, k02_03)
 
 processed |>
   filter(k02_03 != "Elementary school") |>
-  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_03)
+  create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_03, factor_levels = c("Highschool", "University BA", "University MA", "PhD"))
 ```
 
 Father's education.
@@ -389,7 +395,7 @@ Father's education.
 count(processed, k02_04)
 
 processed |>
-  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_04)
+  create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_04, factor_levels = c("Elementary school", "Highschool", "University BA", "University MA", "PhD"))
 ```
 
 Economic status.
@@ -398,7 +404,7 @@ Economic status.
 count(processed, k02_05)
 
 processed |>
-  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_05)
+  create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_05)
 ```
 
 Interaction effects for the main outcome variable between modifying factors and explicit responsibility.
@@ -408,7 +414,7 @@ Gender.
 ```{r}
 processed |>
   filter(k02_01 != "Wishes not to respond") |> 
-  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_01)
+  create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_01)
 ```
 
 Mother's education. Excluded elementary school because of the low number of responses.
@@ -416,21 +422,21 @@ Mother's education. Excluded elementary school because of the low number of resp
 ```{r}
 processed |>
   filter(k02_03 != "Elementary school") |>
-  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_03)
+  create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_03, factor_levels = c( "Highschool", "University BA", "University MA", "PhD"))
 ```
 
 Father's education.
 
 ```{r}
 processed |>
-  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_04)
+  create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_04, factor_levels = c("Elementary school", "Highschool", "University BA", "University MA", "PhD"))
 ```
 
 Economic status.
 
 ```{r}
 processed |>
-  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_05)
+  create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_05)
 ```
 
 ### Latent Profile Analysis
@@ -543,84 +549,19 @@ processed_with_classes <- model_data %>%
 Exploring the interaction between LPA classes and AI use / responsibility on the main outcome variable.
 
 ```{r}
-iris %>%   
-  group_by(Species) %>%   
-  slice_max(Sepal.Length, n=5) %>%   
-  group_by(Species) %>% 
-  mutate(row=row_number()) %>% 
-  pivot_longer(-c(Species, row)) %>%
-  mutate(Species = str_to_title(Species),
-         name = gsub("\\.", " ", name)) %>% 
-  pivot_wider(names_from=c(Species, name), values_from=value) %>% 
-  select(-row) %>% 
-  gt() %>% 
-  tab_spanner_delim(
-      delim="_"
-  ) %>% 
-  fmt_missing(
-    columns=everything(),
-    missing_text=""
-  )
-```
-
-```{r}
-table <- processed_with_classes |>
-  calculate_interaction_table_data(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = Class) |>
-  outcome_var_rename(items) |> 
-  pivot_wider(names_from = Class, values_from = c(No, Yes, Difference),
-              names_glue = "{Class}-{.value}"
-              )
-
-# Get unique class labels
-classes <- unique(processed_with_classes$Class)
-
-gt_table <- table |>
-  gt(rowname_col = "items") |>
-  tab_stubhead(label = "Items")
-
-for (class in classes) {
-  gt_table <- gt_table |>
-    tab_spanner(
-      label = class,
-      columns = matches(paste0("^", class, "-"))
-    )
-}
-
-col_labels <- setNames(
-  rep(c("No", "Yes", "Difference"), length(classes)),
-  unlist(lapply(classes, function(class) {
-    paste0(class, "-", c("No", "Yes", "Difference"))
-  }))
-)
-
-gt_table <- gt_table |>
-  cols_label(.list = col_labels)
-# Display the final gt table
-gt_table
-
 create_interaction_table(processed_with_classes, response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = Class)
+
+create_interaction_table(processed_with_classes, response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = Class)
 ```
 
 Same but for the attitudes towards the researchers behind the presented abstract.
 
 ```{r}
 processed_with_classes |>
-  calculate_interaction_table_data(response_vars = starts_with("k04_02_expertise"), grouping_var = is_ai, factor_var = Class)
+  create_interaction_table(response_vars = c(k04_02_expertise, k04_02_integrity, k04_02_benevolence), grouping_var = is_ai, factor_var = Class)
 
 processed_with_classes |>
-  calculate_interaction_table_data(response_vars = starts_with("k04_02_expertise"), grouping_var = is_responsibility, factor_var = Class)
-
-processed_with_classes |>
-  calculate_interaction_table_data(response_vars = starts_with("k04_02_integrity"), grouping_var = is_ai, factor_var = Class)
-
-processed_with_classes |>
-  calculate_interaction_table_data(response_vars = starts_with("k04_02_integrity"), grouping_var = is_responsibility, factor_var = Class)
-
-processed_with_classes |>
-  calculate_interaction_table_data(response_vars = starts_with("k04_02_benevolence"), grouping_var = is_ai, factor_var = Class)
-
-processed_with_classes |>
-  calculate_interaction_table_data(response_vars = starts_with("k04_02_benevolence"), grouping_var = is_responsibility, factor_var = Class)
+  create_interaction_table(response_vars = c(k04_02_expertise, k04_02_integrity, k04_02_benevolence), grouping_var = is_responsibility, factor_var = Class)
 ```
 
 ### Testing the internal consistency of scales

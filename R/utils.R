@@ -10,8 +10,11 @@ outcome_var_rename <- function(data, outcome_var) {
       {{outcome_var}} == "k01_02_i06" ~  "The study appears to have been conducted consistently and with great care by the researchers.",
       {{outcome_var}} == "k01_02_i07" ~ "If other researchers were to re-examine the exact same question, they would likely find the intervention equally effective.",
       {{outcome_var}} == "k01_02_i08" ~ "If I had a child of this age, I would not allow this program to be implemented in their school.",
-      {{outcome_var}} == "k01_02_i09" ~ "I support legally mandating the introduction of these obesity-reducing methods in schools based on this article."
-  ))
+      {{outcome_var}} == "k01_02_i09" ~ "I support legally mandating the introduction of these obesity-reducing methods in schools based on this article.",
+      {{outcome_var}} == "k04_02_expertise" ~ "Expertise",
+      {{outcome_var}} == "k04_02_benevolence" ~ "Benevolence",
+      {{outcome_var}} == "k04_02_integrity" ~ "Integrity"
+))
 }
 
 calculate_main_table_data <- function(data, response_vars, grouping_var) {
@@ -64,7 +67,12 @@ calculate_interaction_table_data <- function(data, response_vars, grouping_var, 
     select({{factor_var}}, items, No, Yes, Difference)
 }
 
-create_interaction_table <- function(data, response_vars, grouping_var, factor_var) {
+create_interaction_table <- function(data, response_vars, grouping_var, factor_var, factor_levels = NULL) {
+  # Reorder factor levels if specified
+  if (!is.null(factor_levels)) {
+    data <- data |> mutate({{ factor_var }} := factor({{ factor_var }}, levels = factor_levels))
+  }
+  
   # Calculate and reshape the interaction table data
   factor_var_name <- deparse(substitute(factor_var))
   
@@ -89,7 +97,7 @@ create_interaction_table <- function(data, response_vars, grouping_var, factor_v
         columns = matches(paste0("^", label, "-"))
       )
   }
-  print(table_data)
+
   # Create column labels for No, Yes, and Difference
   col_labels <- setNames(
     rep(c("No", "Yes", "Difference"), length(unique_labels)),
