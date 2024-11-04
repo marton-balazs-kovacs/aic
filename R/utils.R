@@ -45,8 +45,8 @@ calculate_interaction_table_data <- function(data, response_vars, grouping_var, 
       Yes = paste(Yes_mean, Yes_sd, sep = "/"),
       Difference = paste(mean_diff, sd_diff, sep = "/")
     ) |>
-    select({{factor_var}}, items, No, Yes, Difference)
-  
+    select({{factor_var}}, items, No, Yes, Difference) |> 
+    gt()
 }
 
 calculate_percentage <- function(data, response_var, grouping_var) {

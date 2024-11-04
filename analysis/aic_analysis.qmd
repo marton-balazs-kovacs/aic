@@ -12,11 +12,12 @@ editor_options:
 library(tidyverse)
 library(tidyLPA)
 library(gt)
+library(psych)
 ```
 
 ### Load custom functions
 
-```{r}
+```{r m}
 source(here::here("R/utils.R"))
 ```
 
@@ -125,7 +126,8 @@ processed |>
     Yes = paste(Yes_mean, Yes_sd, sep = "/"),
     Difference = paste(mean_diff, sd_diff, sep = "/")
   ) |>
-  select(items, No, Yes, Difference) 
+  select(items, No, Yes, Difference) |> 
+  gt() 
 ```
 
 Responsibility main effect.
@@ -157,7 +159,8 @@ processed |>
     Yes = paste(Yes_mean, Yes_sd, sep = "/"),
     Difference = paste(mean_diff, sd_diff, sep = "/")
   ) |>
-  select(items, No, Yes, Difference) 
+  select(items, No, Yes, Difference) |> 
+  gt() 
 ```
 
 Tables for the main outcome variable based on demographic variables.
@@ -192,7 +195,8 @@ processed |>
     Female = paste(Female_mean, Female_sd, sep = "/"),
     Difference = paste(mean_diff, sd_diff, sep = "/")
   ) |>
-  select(items, Male, Female, Difference) 
+  select(items, Male, Female, Difference) |> 
+  gt() 
 ```
 
 Mother's education.
@@ -247,7 +251,8 @@ processed |>
     `University (masters)`,
     PhD,
     Difference
-  ) 
+  ) |> 
+  gt()
 ```
 
 Father's education.
@@ -302,7 +307,8 @@ processed |>
     `University (masters)`,
     PhD,
     Difference
-  ) 
+  ) |> 
+  gt()
 ```
 
 Economic status.
@@ -351,7 +357,8 @@ processed |>
     `Middle 40%`,
 `Top 30%`,
     Difference
-  ) 
+  ) |> 
+  gt()
 ```
 
 ### Interaction
@@ -563,353 +570,15 @@ processed_with_classes |>
   calculate_interaction_table_data(response_vars = starts_with("k04_02_benevolence"), grouping_var = is_responsibility, factor_var = Class)
 ```
 
+### Testing the internal consistency of scales
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-### AI main effect
+Main outcome variable.
 
 ```{r}
-ai_main_plot_data <-
-  processed |> 
-  dplyr::select(is_ai, k01_02_composite, Class) |> 
-  mutate(
-    is_ai = case_when(
-      is_ai == 1L ~ "Used",
-      is_ai == 0L ~ "Not used"
-    ),
-    Class = case_when(
-      Class == 1 ~ "No trust in AI nor science",
-      Class == 2 ~ "Trust science but not AI",
-      Class == 3 ~ "Trust AI but not science"
-    )
-  ) |> 
-  group_by(is_ai, Class) |> 
-  summarise(
-    mean = mean(k01_02_composite, na.rm = TRUE),
-    sd = sd(k01_02_composite, na.rm = TRUE),
-    n = n(),
-    se = sd / sqrt(n),
-    ci_lower = mean - se * 1.96,
-    ci_upper = mean + se * 1.96
-    )
+main_outcome_scale <- processed %>%
+  select(starts_with("k01_02_i"))
 
-ai_main_plot <-
-  ai_main_plot_data |> 
-  ggplot() +
-  aes(
-    x = is_ai,
-    y = mean,
-    color = Class,
-    group = Class
-  ) +
-  geom_line(linewidth = 1.2) +
-  geom_point(size = 8) +
-  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.1) +
-  scale_y_continuous(limits = c(9, 63), breaks = seq(from = 9, to = 63, by = 9)) +
-  labs(
-    x = "Did the authors use AI during the study?",
-    y = "Mean perceived credibility of the study",
-    color = "Profile"
-  ) +
-  theme(
-    panel.background = element_blank(),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18),
-    legend.title = element_text(size = 18),
-    legend.text = element_text(size = 16),
-    legend.position='bottom'
-  )
-
-ai_main_plot 
+# Calculate Cronbach's alpha
+psych::alpha(main_outcome_scale)
 ```
 
-Lets explore the difference by AI main effect without the profiles.
-
-```{r}
-ai_main_noprofile_plot_data <-
-  processed |> 
-  dplyr::select(is_ai, k01_02_composite) |> 
-  mutate(
-    is_ai = case_when(
-      is_ai == 1L ~ "Used",
-      is_ai == 0L ~ "Not used"
-    )
-  ) |> 
-  group_by(is_ai) |> 
-  summarise(
-    mean = mean(k01_02_composite, na.rm = TRUE),
-    sd = sd(k01_02_composite, na.rm = TRUE),
-    n = n(),
-    se = sd / sqrt(n),
-    ci_lower = mean - se * 1.96,
-    ci_upper = mean + se * 1.96
-    )
-
-ai_main_noprofile_plot <-
-  ai_main_noprofile_plot_data |> 
-  ggplot() +
-  aes(
-    x = is_ai,
-    y = mean
-  ) +
-  geom_point(size = 8) +
-  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.1) +
-  scale_y_continuous(limits = c(9, 63), breaks = seq(from = 9, to = 63, by = 9)) +
-  labs(
-    x = "Did the authors use AI during the study?",
-    y = "Mean perceived credibility of the study"
-  ) +
-  theme(
-    panel.background = element_blank(),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18)
-  )
-
-ai_main_noprofile_plot 
-```
-
-### Modulating factors of AI main effect
-
-Attitudes towards self driving cars.
-
-```{r}
-ai_main_cars_plot_data <-
-  processed |> 
-  dplyr::select(is_ai, k01_02_composite, k06_01_composite) |> 
-  mutate(
-    is_ai = case_when(
-      is_ai == 1L ~ "Used",
-      is_ai == 0L ~ "Not used"
-    )
-  )
-
-ai_main_cars_plot <-
-  ai_main_cars_plot_data |> 
-  ggplot() +
-  aes(
-    x = k01_02_composite,
-    y = k06_01_composite,
-    color = is_ai
-  ) +
-  geom_point(size = 3) +
-  geom_smooth(method = "lm", se = FALSE) +
-  scale_x_continuous(limits = c(9, 63), breaks = seq(from = 9, to = 63, by = 9)) +
-  scale_y_continuous(limits = c(19, 95), breaks = seq(from = 19, to = 95, by = 19), labels = as.character(seq(from = 19, to = 95, by = 19))) +
-  labs(
-    y = "Mean attitude scores towards autonomous vehicles",
-    x = "Mean perceived credibility of the study",
-    color = "AI"
-  ) +
-  theme(
-    panel.background = element_blank(),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18),
-    legend.title = element_text(size = 18),
-    legend.text = element_text(size = 16)
-  )
-
-ai_main_cars_plot 
-```
-
-### Interaction effect
-
-```{r}
-interaction_plot_data <-
-  processed |> 
-  dplyr::select(is_ai, is_responsibility, k01_02_composite) |> 
-  mutate(
-    is_ai = case_when(
-      is_ai == 1L ~ "Used",
-      is_ai == 0L ~ "Not used"
-    ),
-    is_responsibility = case_when(
-      is_responsibility == 1L ~ "Assumed",
-      is_responsibility == 0L ~ "Not assumed"
-    )
-  ) |> 
-  group_by(is_ai, is_responsibility) |> 
-  summarise(
-    mean = mean(k01_02_composite, na.rm = TRUE),
-    sd = sd(k01_02_composite, na.rm = TRUE),
-    n = n(),
-    se = sd / sqrt(n),
-    ci_lower = mean - se * 1.96,
-    ci_upper = mean + se * 1.96
-    )
-
-interaction_plot <-
-  interaction_plot_data |> 
-  ggplot() +
-  aes(
-    x = is_ai,
-    y = mean,
-    color = is_responsibility
-  ) +
-  geom_point(size = 8) +
-  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.1) +
-  scale_y_continuous(limits = c(9, 63), breaks = seq(from = 9, to = 63, by = 9)) +
-  labs(
-    x = "Did the authors use AI during the study?",
-    y = "Mean perceived credibility of the study",
-    color = "Responsibility"
-  ) +
-  theme(
-    panel.background = element_blank(),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18),
-    legend.title = element_text(size = 18),
-    legend.text = element_text(size = 16)
-  )
-
-interaction_plot
-```
-
-### Responsibility main effect
-
-```{r}
-resp_main_plot_data <-
-  processed |> 
-  dplyr::select(is_responsibility, k01_02_composite) |> 
-  mutate(
-    is_responsibility = case_when(
-      is_responsibility == 1L ~ "Used",
-      is_responsibility == 0L ~ "Not used"
-    )
-  ) |> 
-  group_by(is_responsibility) |> 
-  summarise(
-    mean = mean(k01_02_composite, na.rm = TRUE),
-    sd = sd(k01_02_composite, na.rm = TRUE),
-    n = n(),
-    se = sd / sqrt(n),
-    ci_lower = mean - se * 1.96,
-    ci_upper = mean + se * 1.96
-    )
-
-resp_main_plot <-
-  resp_main_plot_data |> 
-  ggplot() +
-  aes(
-    x = is_responsibility,
-    y = mean
-  ) +
-  geom_point(size = 8) +
-  geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), width = 0.1) +
-  scale_y_continuous(limits = c(9, 63), breaks = seq(from = 9, to = 63, by = 9)) +
-  labs(
-    x = "Did the authors take responsibility for the study?",
-    y = "Mean perceived credibility of the study"
-  ) +
-  theme(
-    panel.background = element_blank(),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18)
-  )
-
-resp_main_plot 
-```
-
-## Exploration
-
-```{r}
-cars_science_plot_data <-
-  processed |> 
-  dplyr::select(is_ai, k04_01_composite, k06_01_composite) |> 
-  mutate(
-    is_ai = case_when(
-      is_ai == 1L ~ "Used",
-      is_ai == 0L ~ "Not used"
-    )
-  )
-
-cars_science_plot <-
-  cars_science_plot_data |> 
-  ggplot() +
-  aes(
-    x = k04_01_composite,
-    y = k06_01_composite,
-    color = is_ai
-  ) +
-  geom_point(size = 3) +
-  geom_smooth(method = "lm", se = FALSE) +
-  # scale_x_continuous(limits = c(9, 63), breaks = seq(from = 9, to = 63, by = 9)) +
-  # scale_y_continuous(limits = c(19, 95), breaks = seq(from = 19, to = 95, by = 19), labels = as.character(seq(from = 19, to = 95, by = 19))) +
-  labs(
-    y = "Mean attitude scores towards autonomous vehicles",
-    x = "Mean attitude scores towards science",
-    color = "AI"
-  ) +
-  theme(
-    panel.background = element_blank(),
-    panel.grid = element_blank(),
-    axis.line = element_line(color = "black"),
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18),
-    legend.title = element_text(size = 18),
-    legend.text = element_text(size = 16)
-  )
-
-cars_science_plot 
-```
-
-```{r}
-processed |> 
-  select(k03_01) |> 
-  count(k03_01) |> 
-  arrange(desc(n)) |> 
-  ggplot() +
-  aes(
-    x = fct_reorder(k03_01, n, .desc = TRUE),  # Order k03_01 by n in descending order
-    y = n
-  ) +
-  geom_bar(stat = "identity") +
-  xlab("How often do you use generative AI tools?") +
-  ylab("Count")
-```
-
-```{r}
-processed |> 
-  select(starts_with("k07_02"))
-  
-```
