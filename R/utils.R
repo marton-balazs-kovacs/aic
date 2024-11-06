@@ -1,3 +1,9 @@
+save_latex_table <- function(gt_table, filename) {
+  # Convert to LaTeX format and save as .tex file
+  gt_table %>%
+    gtsave(filename = paste0("tables/", filename, ".tex"))
+}
+
 outcome_var_rename <- function(data, outcome_var) {
   data |> 
     mutate(

@@ -62,7 +62,8 @@ processed |>
     n = md("**N**"),
     percentage = md("**Percentage**"),
     factor = md("**Factor**")
-  )
+  ) |> 
+  gtsave(filename = paste0("tables/demographic", ".tex"))
 ```
 
 How often do you use ChatGPT or other generative AI tools?
@@ -92,7 +93,8 @@ processed |>
     levels = md("**Levels**"),
     n = md("**N**"),
     percentage = md("**Percentage**"),
-  )
+  ) |> 
+  gtsave(filename = paste0("tables/chatgpt_use", ".tex"))
 ```
 
 ### Main effects
@@ -125,7 +127,8 @@ processed |>
   ) |>
   select(items, No, Yes, Difference) |> 
   outcome_var_rename(items) |> 
-  gt() 
+  gt() |> 
+  gtsave(filename = paste0("tables/ai_main", ".tex"))
 ```
 
 Responsibility main effect.
@@ -159,7 +162,8 @@ processed |>
   ) |>
   select(items, No, Yes, Difference) |> 
   outcome_var_rename(items) |> 
-  gt() 
+  gt() |> 
+  gtsave(filename = paste0("tables/responsibility_main", ".tex"))
 ```
 
 Tables for the main outcome variable based on demographic variables.
@@ -193,7 +197,8 @@ processed |>
   ) |>
   select(items, Male, Female, Difference) |> 
   outcome_var_rename(items) |> 
-  gt() 
+  gt() |> 
+  gtsave(filename = paste0("tables/gender_main", ".tex"))
 ```
 
 Mother's education.
@@ -246,7 +251,8 @@ processed |>
     Difference
   ) |> 
   outcome_var_rename(items) |> 
-  gt()
+  gt() |> 
+  gtsave(filename = paste0("tables/mother_main", ".tex"))
 ```
 
 Father's education.
@@ -299,7 +305,8 @@ processed |>
     Difference
   ) |> 
   outcome_var_rename(items) |> 
-  gt()
+  gt() |> 
+  gtsave(filename = paste0("tables/father_main", ".tex"))
 ```
 
 Economic status.
@@ -346,7 +353,8 @@ processed |>
     Difference
   ) |> 
   outcome_var_rename(items) |> 
-  gt()
+  gt() |> 
+  gtsave(filename = paste0("tables/economic_main", ".tex"))
 ```
 
 ### Interaction
@@ -356,9 +364,14 @@ Interaction effects for the main outcome variable between modifying factors and 
 Gender.
 
 ```{r}
-processed |>
+gender_ai_interaction <-
+  processed |>
   filter(k02_01 != "Wishes not to respond") |> 
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_01)
+
+save_latex_table(gender_ai_interaction, filename = "gender_ai_interaction")
+
+gender_ai_interaction
 ```
 
 Mother's education. Excluded elementary school because of the low number of responses.
@@ -366,9 +379,14 @@ Mother's education. Excluded elementary school because of the low number of resp
 ```{r}
 count(processed, k02_03)
 
-processed |>
+mother_ai_interaction <-
+  processed |>
   filter(k02_03 != "Elementary school") |>
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_03, factor_levels = c("Highschool", "University BA", "University MA", "PhD"))
+
+save_latex_table(mother_ai_interaction, filename = "mother_ai_interaction")
+
+mother_ai_interaction
 ```
 
 Father's education.
@@ -376,8 +394,25 @@ Father's education.
 ```{r}
 count(processed, k02_04)
 
-processed |>
+father_ai_interaction <-
+  processed |>
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_04, factor_levels = c("Elementary school", "Highschool", "University BA", "University MA", "PhD"))
+
+save_latex_table(father_ai_interaction, filename = "father_ai_interaction")
+
+father_ai_interaction
+```
+
+Joined education of parents.
+
+```{r}
+parents_ai_interaction <-
+  processed |> 
+    create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = parents_education_groups, factor_levels = c("25% Bottom", "50% Median", "25% Top"))
+
+save_latex_table(parents_ai_interaction, filename = "parents_ai_interaction")
+
+parents_ai_interaction
 ```
 
 Economic status.
@@ -385,8 +420,13 @@ Economic status.
 ```{r}
 count(processed, k02_05)
 
-processed |>
+economic_ai_interaction <- 
+  processed |>
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_05)
+
+save_latex_table(economic_ai_interaction, filename = "economic_ai_interaction")
+
+economic_ai_interaction
 ```
 
 Interaction effects for the main outcome variable between modifying factors and explicit responsibility.
@@ -394,31 +434,63 @@ Interaction effects for the main outcome variable between modifying factors and 
 Gender.
 
 ```{r}
-processed |>
+gender_responsibility_interaction <-
+  processed |>
   filter(k02_01 != "Wishes not to respond") |> 
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_01)
+
+save_latex_table(gender_responsibility_interaction, filename = "gender_responsibility_interaction")
+
+gender_responsibility_interaction
 ```
 
 Mother's education. Excluded elementary school because of the low number of responses.
 
 ```{r}
-processed |>
+mother_responsibility_interaction <-
+  processed |>
   filter(k02_03 != "Elementary school") |>
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_03, factor_levels = c( "Highschool", "University BA", "University MA", "PhD"))
+
+save_latex_table(mother_responsibility_interaction, filename = "mother_responsibility_interaction")
+
+mother_responsibility_interaction
 ```
 
 Father's education.
 
 ```{r}
-processed |>
+father_responsibility_interaction <-
+  processed |>
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_04, factor_levels = c("Elementary school", "Highschool", "University BA", "University MA", "PhD"))
+
+save_latex_table(father_responsibility_interaction, filename = "father_responsibility_interaction")
+
+father_responsibility_interaction
+```
+
+Joined education of parents.
+
+```{r}
+parent_responsibility_interaction <-
+  processed |> 
+    create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = parents_education_groups, factor_levels = c("25% Bottom", "50% Median", "25% Top"))
+
+save_latex_table(parent_responsibility_interaction, filename = "parent_responsibility_interaction")
+
+parent_responsibility_interaction
 ```
 
 Economic status.
 
 ```{r}
-processed |>
+economic_responsibility_interaction <-
+  processed |>
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_05)
+
+save_latex_table(economic_responsibility_interaction, filename = "economic_responsibility_interaction")
+
+economic_responsibility_interaction
 ```
 
 ### Latent Profile Analysis
@@ -531,19 +603,39 @@ processed_with_classes <- model_data %>%
 Exploring the interaction between LPA classes and AI use / responsibility on the main outcome variable.
 
 ```{r}
+lpa_ai_abstract_interaction <-
 create_interaction_table(processed_with_classes, response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = Class)
 
+save_latex_table(lpa_ai_abstract_interaction, filename = "lpa_ai_abstract_interaction")
+
+lpa_ai_abstract_interaction
+
+lpa_responsibility_abstract_interaction <-
 create_interaction_table(processed_with_classes, response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = Class)
+
+save_latex_table(lpa_responsibility_abstract_interaction, filename = "lpa_responsibility_abstract_interaction")
+
+lpa_responsibility_abstract_interaction
 ```
 
 Same but for the attitudes towards the researchers behind the presented abstract.
 
 ```{r}
+lpa_ai_researcher_interaction <-
 processed_with_classes |>
   create_interaction_table(response_vars = c(k04_02_expertise, k04_02_integrity, k04_02_benevolence), grouping_var = is_ai, factor_var = Class)
 
+save_latex_table(lpa_ai_researcher_interaction, filename = "lpa_ai_researcher_interaction")
+
+lpa_ai_researcher_interaction
+
+lpa_responsibility_researcher_interaction <-
 processed_with_classes |>
   create_interaction_table(response_vars = c(k04_02_expertise, k04_02_integrity, k04_02_benevolence), grouping_var = is_responsibility, factor_var = Class)
+
+save_latex_table(lpa_responsibility_researcher_interaction, filename = "lpa_responsibility_researcher_interaction")
+
+lpa_responsibility_researcher_interaction
 ```
 
 ### Testing the internal consistency of scales

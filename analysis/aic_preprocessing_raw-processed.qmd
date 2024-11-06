@@ -294,6 +294,12 @@ raw <-
       k02_04 == "Egyetem (alapképzés)" ~ 15,
       k02_04 == "Egyetem (mesterképzés)" ~ 17,
       k02_04 == "Doktori fokozat" ~ 21
+    ),
+    parents_education = k02_03_num + k02_04_num,
+    parents_education_groups = case_when(
+      parents_education <= quantile(parents_education, 0.25) ~ "25% Bottom",
+      parents_education > quantile(parents_education, 0.25) & parents_education <= quantile(parents_education, 0.75) ~ "50% Median",
+      parents_education > quantile(parents_education, 0.75) ~ "25% Top"
     )
   )
 ```
