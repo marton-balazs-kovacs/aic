@@ -115,6 +115,7 @@ processed |>
     k03_01 = factor(k03_01, levels = c("Never", "Daily", "Multiple times daily", "Once a week", "Multiple times weekly", "Less than once monthly", "Once monthly"))
   ) |> 
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k03_01)
+   # gtsave(filename = here(paste0("analysis/tables/chatgpt_use_ai_main", ".tex")))
 ```
 
 ```{r}
@@ -131,7 +132,8 @@ processed |>
     ),
     k03_01 = factor(k03_01, levels = c("Never", "Daily", "Multiple times daily", "Once a week", "Multiple times weekly", "Less than once monthly", "Once monthly"))
   ) |> 
-  create_interaction_table(response_vars = c(k04_02_expertise, k04_02_integrity, k04_02_benevolence), grouping_var = is_ai, factor_var = k03_01)
+  create_interaction_table(response_vars = c(k04_02_expertise, k04_02_integrity, k04_02_benevolence), grouping_var = is_ai, factor_var = k03_01) 
+   # gtsave(filename = here(paste0("analysis/tables/chatgpt_use_ai_researchers", ".tex")))
 ```
 
 ### Main effects
