@@ -12,6 +12,7 @@ editor_options:
 library(tidyverse)
 library(tidyLPA)
 library(gt)
+library(here)
 library(psych)
 ```
 
@@ -62,8 +63,8 @@ processed |>
     n = md("**N**"),
     percentage = md("**Percentage**"),
     factor = md("**Factor**")
-  ) |> 
-  gtsave(filename = paste0("tables/demographic", ".tex"))
+  )
+  # gtsave(filename = here(paste0("tables/demographic", ".tex")))
 ```
 
 How often do you use ChatGPT or other generative AI tools?
@@ -93,8 +94,44 @@ processed |>
     levels = md("**Levels**"),
     n = md("**N**"),
     percentage = md("**Percentage**"),
+  ) 
+  # gtsave(filename = here(paste0("tables/chatgpt_use", ".tex")))
+```
+
+Interaction between frequency of AI use and AI condition.
+
+```{r}
+processed |> 
+  mutate(
+    k03_01 = case_when(
+      k03_01 == "Soha" ~ "Never",
+      k03_01 == "Naponta" ~ "Daily",
+      k03_01 == "Naponta többször" ~ "Multiple times daily",
+      k03_01 == "Hetente egyszer" ~ "Once a week",
+      k03_01 == "Hetente többször" ~ "Multiple times weekly",
+      k03_01 == "Havonta kevesebb mint egyszer" ~ "Less than once monthly",
+      k03_01 == "Havonta egyszer" ~ "Once monthly"
+    ),
+    k03_01 = factor(k03_01, levels = c("Never", "Daily", "Multiple times daily", "Once a week", "Multiple times weekly", "Less than once monthly", "Once monthly"))
   ) |> 
-  gtsave(filename = paste0("tables/chatgpt_use", ".tex"))
+  create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k03_01)
+```
+
+```{r}
+processed |> 
+  mutate(
+    k03_01 = case_when(
+      k03_01 == "Soha" ~ "Never",
+      k03_01 == "Naponta" ~ "Daily",
+      k03_01 == "Naponta többször" ~ "Multiple times daily",
+      k03_01 == "Hetente egyszer" ~ "Once a week",
+      k03_01 == "Hetente többször" ~ "Multiple times weekly",
+      k03_01 == "Havonta kevesebb mint egyszer" ~ "Less than once monthly",
+      k03_01 == "Havonta egyszer" ~ "Once monthly"
+    ),
+    k03_01 = factor(k03_01, levels = c("Never", "Daily", "Multiple times daily", "Once a week", "Multiple times weekly", "Less than once monthly", "Once monthly"))
+  ) |> 
+  create_interaction_table(response_vars = c(k04_02_expertise, k04_02_integrity, k04_02_benevolence), grouping_var = is_ai, factor_var = k03_01)
 ```
 
 ### Main effects
@@ -127,8 +164,8 @@ processed |>
   ) |>
   select(items, No, Yes, Difference) |> 
   outcome_var_rename(items) |> 
-  gt() |> 
-  gtsave(filename = paste0("tables/ai_main", ".tex"))
+  gt() 
+  # gtsave(filename = here(paste0("tables/ai_main", ".tex")))
 ```
 
 Responsibility main effect.
@@ -162,8 +199,8 @@ processed |>
   ) |>
   select(items, No, Yes, Difference) |> 
   outcome_var_rename(items) |> 
-  gt() |> 
-  gtsave(filename = paste0("tables/responsibility_main", ".tex"))
+  gt() 
+  # gtsave(filename = here(paste0("tables/responsibility_main", ".tex")))
 ```
 
 Tables for the main outcome variable based on demographic variables.
@@ -197,8 +234,8 @@ processed |>
   ) |>
   select(items, Male, Female, Difference) |> 
   outcome_var_rename(items) |> 
-  gt() |> 
-  gtsave(filename = paste0("tables/gender_main", ".tex"))
+  gt() 
+  # gtsave(filename = here(paste0("tables/gender_main", ".tex")))
 ```
 
 Mother's education.
@@ -251,8 +288,8 @@ processed |>
     Difference
   ) |> 
   outcome_var_rename(items) |> 
-  gt() |> 
-  gtsave(filename = paste0("tables/mother_main", ".tex"))
+  gt() 
+  # gtsave(filename = here(paste0("tables/mother_main", ".tex")))
 ```
 
 Father's education.
@@ -305,8 +342,8 @@ processed |>
     Difference
   ) |> 
   outcome_var_rename(items) |> 
-  gt() |> 
-  gtsave(filename = paste0("tables/father_main", ".tex"))
+  gt()  
+  # gtsave(filename = here(paste0("tables/father_main", ".tex")))
 ```
 
 Economic status.
@@ -353,8 +390,8 @@ processed |>
     Difference
   ) |> 
   outcome_var_rename(items) |> 
-  gt() |> 
-  gtsave(filename = paste0("tables/economic_main", ".tex"))
+  gt()  
+  # gtsave(filename = here(paste0("tables/economic_main", ".tex")))
 ```
 
 ### Interaction
@@ -369,7 +406,7 @@ gender_ai_interaction <-
   filter(k02_01 != "Wishes not to respond") |> 
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_01)
 
-save_latex_table(gender_ai_interaction, filename = "gender_ai_interaction")
+# save_latex_table(gender_ai_interaction, filename = "gender_ai_interaction")
 
 gender_ai_interaction
 ```
@@ -384,7 +421,7 @@ mother_ai_interaction <-
   filter(k02_03 != "Elementary school") |>
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_03, factor_levels = c("Highschool", "University BA", "University MA", "PhD"))
 
-save_latex_table(mother_ai_interaction, filename = "mother_ai_interaction")
+# save_latex_table(mother_ai_interaction, filename = "mother_ai_interaction")
 
 mother_ai_interaction
 ```
@@ -398,7 +435,7 @@ father_ai_interaction <-
   processed |>
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_04, factor_levels = c("Elementary school", "Highschool", "University BA", "University MA", "PhD"))
 
-save_latex_table(father_ai_interaction, filename = "father_ai_interaction")
+# save_latex_table(father_ai_interaction, filename = "father_ai_interaction")
 
 father_ai_interaction
 ```
@@ -410,7 +447,7 @@ parents_ai_interaction <-
   processed |> 
     create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = parents_education_groups, factor_levels = c("25% Bottom", "50% Median", "25% Top"))
 
-save_latex_table(parents_ai_interaction, filename = "parents_ai_interaction")
+# save_latex_table(parents_ai_interaction, filename = "parents_ai_interaction")
 
 parents_ai_interaction
 ```
@@ -424,7 +461,7 @@ economic_ai_interaction <-
   processed |>
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = k02_05)
 
-save_latex_table(economic_ai_interaction, filename = "economic_ai_interaction")
+# save_latex_table(economic_ai_interaction, filename = "economic_ai_interaction")
 
 economic_ai_interaction
 ```
@@ -439,7 +476,7 @@ gender_responsibility_interaction <-
   filter(k02_01 != "Wishes not to respond") |> 
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_01)
 
-save_latex_table(gender_responsibility_interaction, filename = "gender_responsibility_interaction")
+# save_latex_table(gender_responsibility_interaction, filename = "gender_responsibility_interaction")
 
 gender_responsibility_interaction
 ```
@@ -452,7 +489,7 @@ mother_responsibility_interaction <-
   filter(k02_03 != "Elementary school") |>
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_03, factor_levels = c( "Highschool", "University BA", "University MA", "PhD"))
 
-save_latex_table(mother_responsibility_interaction, filename = "mother_responsibility_interaction")
+# save_latex_table(mother_responsibility_interaction, filename = "mother_responsibility_interaction")
 
 mother_responsibility_interaction
 ```
@@ -464,7 +501,7 @@ father_responsibility_interaction <-
   processed |>
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_04, factor_levels = c("Elementary school", "Highschool", "University BA", "University MA", "PhD"))
 
-save_latex_table(father_responsibility_interaction, filename = "father_responsibility_interaction")
+# save_latex_table(father_responsibility_interaction, filename = "father_responsibility_interaction")
 
 father_responsibility_interaction
 ```
@@ -476,7 +513,7 @@ parent_responsibility_interaction <-
   processed |> 
     create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = parents_education_groups, factor_levels = c("25% Bottom", "50% Median", "25% Top"))
 
-save_latex_table(parent_responsibility_interaction, filename = "parent_responsibility_interaction")
+# save_latex_table(parent_responsibility_interaction, filename = "parent_responsibility_interaction")
 
 parent_responsibility_interaction
 ```
@@ -488,7 +525,7 @@ economic_responsibility_interaction <-
   processed |>
   create_interaction_table(response_vars = starts_with("k01_02_i"), grouping_var = is_responsibility, factor_var = k02_05)
 
-save_latex_table(economic_responsibility_interaction, filename = "economic_responsibility_interaction")
+# save_latex_table(economic_responsibility_interaction, filename = "economic_responsibility_interaction")
 
 economic_responsibility_interaction
 ```
@@ -606,7 +643,7 @@ Exploring the interaction between LPA classes and AI use / responsibility on the
 lpa_ai_abstract_interaction <-
 create_interaction_table(processed_with_classes, response_vars = starts_with("k01_02_i"), grouping_var = is_ai, factor_var = Class)
 
-save_latex_table(lpa_ai_abstract_interaction, filename = "lpa_ai_abstract_interaction")
+# save_latex_table(lpa_ai_abstract_interaction, filename = "lpa_ai_abstract_interaction")
 
 lpa_ai_abstract_interaction
 

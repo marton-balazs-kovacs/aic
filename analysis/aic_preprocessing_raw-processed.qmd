@@ -120,56 +120,6 @@ raw <- raw |>
   mutate(condition = str_extract(file_path, "ver\\s*(\\d+)") |> str_extract("\\d+"))
 ```
 
-### Delete respondents who did not pay attention
-
-The number of respondents who failed the attention check.
-
-```{r}
-nrow(filter(raw, k03_03 != 4))
-```
-
-Excluding.
-
-```{r}
-raw <-
-  raw |> 
-  filter(k03_03 == 4)
-```
-
-The number of respondents who did not understand the abstract.
-
-```{r}
-count(raw, k07_01)
-```
-
-Excluding.
-
-```{r}
-raw <-
-  raw |> 
-  filter(k07_01 == "A kutatás azt vizsgálta, hogy milyen hatásai voltak egy iskolai elhízás-megelőzési programnak.")
-```
-
-Number of respondents who could not concentrate at all.
-
-```{r}
-count(raw, k07_03)
-```
-
-Excluding.
-
-```{r}
-raw <-
-  raw |> 
-  filter(k07_03 != "Nem, már az elején néhány kérdés után abbahagytam a pontos értelmezést.")
-```
-
-The number of respondents remaining after the exclusions.
-
-```{r}
-nrow(raw)
-```
-
 ### Adding condition based variables
 
 There are four scenarios based on two conditions (use of AI and assuming responsibility):
@@ -434,9 +384,73 @@ raw <-
     )
 ```
 
+### Delete respondents who did not pay attention
+
+The number of respondents who failed the attention check.
+
+```{r}
+nrow(filter(raw, k03_03 != 4))
+```
+
+Excluding.
+
+```{r}
+raw_exclude <-
+  raw |> 
+  filter(k03_03 == 4)
+```
+
+The number of respondents who did not understand the abstract.
+
+```{r}
+count(raw_exclude, k07_01)
+```
+
+Excluding.
+
+```{r}
+raw_exclude |> 
+  filter(k07_01 != "A kutatás azt vizsgálta, hogy milyen hatásai voltak egy iskolai elhízás-megelőzési programnak.") |> 
+  nrow()
+```
+
+```{r}
+raw_exclude <-
+  raw_exclude |> 
+  filter(k07_01 == "A kutatás azt vizsgálta, hogy milyen hatásai voltak egy iskolai elhízás-megelőzési programnak.")
+```
+
+Number of respondents who could not concentrate at all.
+
+```{r}
+count(raw_exclude, k07_03)
+```
+
+```{r}
+ raw_exclude |> 
+  filter(k07_03 == "Nem, már az elején néhány kérdés után abbahagytam a pontos értelmezést.") |> 
+  nrow()
+```
+
+Excluding.
+
+```{r}
+raw_exclude <-
+  raw_exclude |> 
+  filter(k07_03 != "Nem, már az elején néhány kérdés után abbahagytam a pontos értelmezést.")
+```
+
+The number of respondents remaining after the exclusions.
+
+```{r}
+nrow(raw_exclude)
+```
+
 ### Save processed data
 
 ```{r}
-write_csv(raw, here::here("data/processed/aic_processed_data.csv"))
+write_csv(raw, here::here("data/processed/aic_processed-no-exclusion_data.csv"))
+writexl::write_xlsx(raw, here::here("data/processed/aic_processed-no-exclusion_data.xlsx"))
+write_csv(raw_exclude, here::here("data/processed/aic_processed_data.csv"))
 ```
 
